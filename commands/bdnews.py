@@ -33,7 +33,7 @@ class News(commands.Cog):
         self._start_scheduler()
 
     def _start_scheduler(self):
-        self.scheduler.add_job(lambda: asyncio.create_task(self._fetch_news_data()), IntervalTrigger(hours=1))
+        self.scheduler.add_job(self._fetch_news_data, IntervalTrigger(hours=1))
         self.scheduler.start()
         logger.info("BDNews 排程器已啟動，每小時執行一次。")
 

@@ -10,17 +10,20 @@ intents.guilds = True
 
 bot = commands.Bot(command_prefix="!", intents=intents)
 
-# 要啟用的功能模組 (cogs)
+# 要啟用的功能模組 (cogs)     "commands.sevendayserver"
 initial_extensions = [
     "commands.forwarder",
     "commands.bdnews",           # <-- 這邊是你剛剛完成的 BD2 模組，名稱為 bdnews.py
-    "commands.minecraftserver",
-    "commands.sevendayserver"
+    "commands.minecraftserver"
 ]
 
 @bot.event
 async def on_ready():
     print(f"✅ Bot 已上線：{bot.user}")
+
+@bot.event
+async def on_command_error(ctx, error):
+    await ctx.send(f"❌ 指令錯誤：{type(error).__name__} - {error}")
 
 async def main():
     async with bot:
