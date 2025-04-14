@@ -1,0 +1,18 @@
+# Python cache
+__pycache__/
+*.pyc
+*.pyo
+
+# 虛擬環境
+.venv/
+env/
+venv/
+
+# VSCode 設定
+.vscode/
+
+# 本地設定檔
+.env
+
+# 備份資料
+backups/
