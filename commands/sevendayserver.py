@@ -56,7 +56,7 @@ class SevenDayServerControl(commands.Cog):
     @commands.command(name="start7d")
     async def start_server(self, ctx):
         if self.is_process_running():
-            await self.send_status_embed("⚠️ 7 Days to Die 伺服器已在執行中。", discord.Color.orange())
+            await self.send_status_embed("⚠️ 伺服器已在執行中，無需再次啟動。", discord.Color.orange())
             return
 
         try:
@@ -65,17 +65,29 @@ class SevenDayServerControl(commands.Cog):
                 cwd=self.server_path,
                 shell=True
             )
-            await self.send_status_embed("✅ 啟動指令已送出，伺服器正在啟動中...", discord.Color.green())
+            await self.send_status_embed("✅ 啟動指令已送出，正在等待伺服器啟動...", discord.Color.green())
 
-            # 啟動備份排程器
-            if self.scheduler is None:
-                self.scheduler = AsyncIOScheduler()
-                self.scheduler.add_job(self.auto_backup_task, IntervalTrigger(hours=1))
-                self.scheduler.start()
-                print("✅ SevenDayServer 備份排程器已啟動，每小時執行一次")
+            # 嘗試最多 90 秒內確認伺服器是否啟動成功
+            for _ in range(18):
+                await asyncio.sleep(5)
+                if self.is_process_running():
+                    await self.send_status_embed("🎉 7 Days to Die 伺服器啟動完成！", discord.Color.green())
+
+                    # 啟動備份排程器
+                    if self.scheduler is None:
+                        self.scheduler = AsyncIOScheduler()
+                        self.scheduler.add_job(self.auto_backup_task, IntervalTrigger(hours=1))
+                        self.scheduler.start()
+                        print("✅ SevenDayServer 備份排程器已啟動，每小時執行一次")
+
+                    await self.check_status(ctx)
+                    return
+
+            await self.send_status_embed("⚠️ 無法確認伺服器是否成功啟動（逾時）", discord.Color.orange())
 
         except Exception as e:
             await self.send_status_embed(f"❌ 啟動失敗：```{e}```", discord.Color.red())
+
 
     @commands.command(name="stop7d")
     async def stop_server(self, ctx):
@@ -101,9 +113,37 @@ class SevenDayServerControl(commands.Cog):
                 self.scheduler.shutdown()
                 self.scheduler = None
                 print("🛑 SevenDayServer 備份排程器已關閉")
-
+            await asyncio.sleep(3)
+            await self.check_status(ctx)
         except Exception as e:
             await self.send_status_embed(f"❌ 關閉失敗：```{e}```", discord.Color.red())
+
+    @commands.command(name="status7d")
+    async def check_status(self, ctx):
+        is_running = self.is_process_running()
+        scheduler_status = "已啟用" if self.scheduler and self.scheduler.running else "未啟用"
+
+        try:
+            backup_count = len([
+                f for f in os.listdir(self.backup_path)
+                if f.startswith("backup_") and f.endswith(".zip")
+            ])
+        except Exception:
+            backup_count = "未知"
+
+        world_folder = os.path.basename(self.world_path.rstrip("/\\"))
+
+        embed = discord.Embed(
+            title="🧠 7 Days to Die 伺服器狀態",
+            description="━━━━━━━━━━━━━━━━━━━━",
+            color=discord.Color.teal() if is_running else discord.Color.red()
+        )
+        embed.add_field(name="狀態", value="🟢 正在執行中" if is_running else "🔴 已關閉", inline=False)
+        embed.add_field(name="備份排程", value=scheduler_status, inline=False)
+        embed.add_field(name="備份數量", value=str(backup_count), inline=False)
+
+        await ctx.send(embed=embed)
+
 
     def backup_world(self):
         try:
