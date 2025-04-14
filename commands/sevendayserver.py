@@ -5,6 +5,7 @@ import discord
 import psutil
 import telnetlib
 from discord.ext import commands
+
 from config import (
     SEVENDAY_DIR,
     SEVENDAY_EXE,
@@ -12,6 +13,7 @@ from config import (
     SEVENDAY_TELNET_PORT,
     SEVENDAY_TELNET_PASSWORD,
     SEVENDAY_STATUS_THREAD_ID,
+    SEVENDAY_SAVE_PATH
 )
 
 class SevenDayServerControl(commands.Cog):
@@ -23,15 +25,11 @@ class SevenDayServerControl(commands.Cog):
         self.telnet_port = SEVENDAY_TELNET_PORT
         self.telnet_password = SEVENDAY_TELNET_PASSWORD
         self.status_thread_id = SEVENDAY_STATUS_THREAD_ID
-        self.status_thread = None
-        print("✅ 資料夾存在？", os.path.exists("F:/Game Server/7DaysToDie"))
-        print("✅ 啟動檔案存在？", os.path.exists("F:/Game Server/7DaysToDie/startdedicated.bat"))
 
     def is_process_running(self):
-        for proc in psutil.process_iter(['pid', 'name', 'cmdline']):
+        for proc in psutil.process_iter(['pid', 'name']):
             try:
-                cmdline = proc.info.get('cmdline') or []
-                if any(self.keyword in str(arg) for arg in cmdline):
+                if proc.info['name'] and self.keyword.lower() in proc.info['name'].lower():
                     return True
             except Exception:
                 continue
@@ -44,26 +42,21 @@ class SevenDayServerControl(commands.Cog):
                 embed = discord.Embed(description=content.strip(), color=color)
                 await thread.send(embed=embed)
         except Exception as e:
-            print(f"❌ 7D2D 通知發送失敗：{e}")
+            print(f"❌ Discord 通知錯誤：{e}")
 
     @commands.command(name="start7d")
     async def start_server(self, ctx):
         if self.is_process_running():
-            await self.send_status_embed("⚠️ 7 Days to Die 伺服器已經在執行中，無需再次啟動。", discord.Color.orange())
+            await self.send_status_embed("⚠️ 7 Days to Die 伺服器已在執行中。", discord.Color.orange())
             return
 
         try:
-            subprocess.Popen(self.exe_name, cwd=self.server_path, shell=True)
-            await self.send_status_embed("✅ 啟動指令已送出，正在等待伺服器啟動...")
-
-            for _ in range(18):  # 最多等 90 秒
-                if self.is_process_running():
-                    await self.send_status_embed("🎉 7 Days to Die 伺服器已成功啟動！", discord.Color.green())
-                    return
-                await asyncio.sleep(5)
-
-            await self.send_status_embed("⚠️ 無法確認伺服器是否啟動完成（逾時）", discord.Color.orange())
-
+            subprocess.Popen(
+                self.exe_name,
+                cwd=self.server_path,
+                shell=True
+            )
+            await self.send_status_embed("✅ 啟動指令已送出，伺服器正在啟動中...", discord.Color.green())
         except Exception as e:
             await self.send_status_embed(f"❌ 啟動失敗：```{e}```", discord.Color.red())
 
@@ -74,22 +67,27 @@ class SevenDayServerControl(commands.Cog):
             return
 
         try:
+            print("嘗試連接 Telnet...")
+
             with telnetlib.Telnet("127.0.0.1", self.telnet_port, timeout=10) as tn:
-                tn.read_until(b"Please enter password:")
+                tn.read_until(b"Please enter password:", timeout=10)
                 tn.write(self.telnet_password.encode("utf-8") + b"\n")
+
+                # 等待登入成功回應
+                login_response = tn.read_until(b">", timeout=10)
+                print(f"🔐 登入成功回應：{login_response.decode(errors='ignore')}")
+
+                await asyncio.sleep(2)  # 保險等待
+
+                # 寫入 shutdown 並加上換行
                 tn.write(b"shutdown\n")
-            await self.send_status_embed("🛑 已發送關閉指令，等待伺服器關閉中...", discord.Color.orange())
+                print("✅ 已發送 shutdown 指令")
 
-            for _ in range(20):  # 最多等 60 秒
-                if not self.is_process_running():
-                    await self.send_status_embed("✅ 7 Days to Die 伺服器已成功關閉。", discord.Color.red())
-                    return
-                await asyncio.sleep(3)
-
-            await self.send_status_embed("⚠️ 關閉指令已送出，但伺服器仍未關閉（逾時）", discord.Color.orange())
+                await self.send_status_embed("🛑 關閉指令已送出，伺服器將關閉。", discord.Color.red())
 
         except Exception as e:
             await self.send_status_embed(f"❌ 關閉失敗：```{e}```", discord.Color.red())
+
 
 async def setup(bot):
     await bot.add_cog(SevenDayServerControl(bot))

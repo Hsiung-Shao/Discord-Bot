@@ -16,3 +16,5 @@ venv/
 
 # 備份資料
 backups/
+
+*.log
