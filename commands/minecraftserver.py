@@ -105,6 +105,31 @@ class MinecraftServerControl(commands.Cog):
         except Exception as e:
             await self.send_status_embed(f"❌ 關閉失敗：```{e}```", discord.Color.red())
 
+    @commands.command(name="statusmc")
+    async def status_mc(self, ctx):
+        server = JavaServer("127.0.0.1", 25565)
+        try:
+            status = server.status()
+            embed = discord.Embed(
+                title="🟢 Minecraft 伺服器狀態",
+                description="伺服器目前正在執行中。",
+                color=discord.Color.green()
+            )
+            embed.add_field(name="IP:", value=f"26.82.236.63 | 125.228.138.70", inline=False)
+            embed.add_field(name="玩家上限", value=f"{status.players.online} / {status.players.max}", inline=True)
+            embed.add_field(name="MOTD", value=str(status.description), inline=False)
+        except Exception:
+            embed = discord.Embed(
+                title="🔴 Minecraft 伺服器狀態",
+                description="伺服器目前未在執行或無法連線。",
+                color=discord.Color.red()
+            )
+
+        # 若由控制面板觸發則回傳給面板更新，不另發訊息
+        if hasattr(ctx, "update_embed"):
+            await ctx.update_embed(embed)
+        else:
+            await ctx.send(embed=embed)
 
     def backup_server_world(self):
         now = datetime.datetime.now()

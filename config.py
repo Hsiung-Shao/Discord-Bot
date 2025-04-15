@@ -6,6 +6,7 @@ load_dotenv()  # 讀取 .env 檔案
 
 # Discord Bot
 BOT_TOKEN = os.getenv("BOT_TOKEN")
+CONTROL_THREAD_ID = os.getenv("CONTROL_THREAD_ID")
 
 # Minecraft Server
 MINECRAFT_JAR_KEYWORD = os.getenv("MINECRAFT_JAR_KEYWORD")
