@@ -19,14 +19,31 @@ class ServerControlPanelView(discord.ui.View):
         except discord.NotFound:
             pass
 
+    async def schedule_status_update(self, interaction: discord.Interaction, delay_seconds: int = 60):
+        async def delayed_status_update():
+            await asyncio.sleep(delay_seconds)
+            embed = await get_combined_status_embed(self.bot)
+            try:
+                await interaction.message.edit(embed=embed)
+                print("✅ 延遲狀態面板更新成功")
+            except Exception as e:
+                print(f"❌ 更新狀態 Embed 失敗：{e}")
+        asyncio.create_task(delayed_status_update())
+
     @discord.ui.button(label="啟動 Minecraft", style=discord.ButtonStyle.green, custom_id="startmc")
     async def start_mc(self, interaction: discord.Interaction, button: discord.ui.Button):
         await interaction.response.defer()
         ctx = await self.bot.get_context(interaction.message)
         cog = self.bot.get_cog("MinecraftServerControl")
         if cog:
-            await cog.start_server(ctx)
-            await self.send_temporary_message(interaction.channel, "✅ 啟動 Minecraft 指令已執行")
+            result = await cog.start_server(ctx)
+            if result is True:
+                await self.send_temporary_message(interaction.channel, "✅ Minecraft 啟動成功")
+                await self.schedule_status_update(interaction)
+            elif result is False:
+                await self.send_temporary_message(interaction.channel, "⚠️ Minecraft 已在執行中")
+            else:
+                await self.send_temporary_message(interaction.channel, "❌ Minecraft 啟動失敗")
 
     @discord.ui.button(label="關閉 Minecraft", style=discord.ButtonStyle.red, custom_id="stopmc")
     async def stop_mc(self, interaction: discord.Interaction, button: discord.ui.Button):
@@ -34,8 +51,14 @@ class ServerControlPanelView(discord.ui.View):
         ctx = await self.bot.get_context(interaction.message)
         cog = self.bot.get_cog("MinecraftServerControl")
         if cog:
-            await cog.stop_server(ctx)
-            await self.send_temporary_message(interaction.channel, "🛑 關閉 Minecraft 指令已執行")
+            result = await cog.stop_server(ctx)
+            if result is True:
+                await self.send_temporary_message(interaction.channel, "🛑 Minecraft 關閉成功")
+                await self.schedule_status_update(interaction)
+            elif result is False:
+                await self.send_temporary_message(interaction.channel, "⚠️ Minecraft 尚未啟動")
+            else:
+                await self.send_temporary_message(interaction.channel, "❌ Minecraft 關閉失敗")
 
     @discord.ui.button(label="啟動 7 Days", style=discord.ButtonStyle.green, custom_id="start7d")
     async def start_7d(self, interaction: discord.Interaction, button: discord.ui.Button):
@@ -43,8 +66,14 @@ class ServerControlPanelView(discord.ui.View):
         ctx = await self.bot.get_context(interaction.message)
         cog = self.bot.get_cog("SevenDayServerControl")
         if cog:
-            await cog.start_server(ctx)
-            await self.send_temporary_message(interaction.channel, "✅ 啟動 7 Days to Die 指令已執行")
+            result = await cog.start_server(ctx)
+            if result is True:
+                await self.send_temporary_message(interaction.channel, "✅ 7 Days 啟動成功")
+                await self.schedule_status_update(interaction)
+            elif result is False:
+                await self.send_temporary_message(interaction.channel, "⚠️ 7 Days 已在執行中")
+            else:
+                await self.send_temporary_message(interaction.channel, "❌ 7 Days 啟動失敗")
 
     @discord.ui.button(label="關閉 7 Days", style=discord.ButtonStyle.red, custom_id="stop7d")
     async def stop_7d(self, interaction: discord.Interaction, button: discord.ui.Button):
@@ -52,14 +81,21 @@ class ServerControlPanelView(discord.ui.View):
         ctx = await self.bot.get_context(interaction.message)
         cog = self.bot.get_cog("SevenDayServerControl")
         if cog:
-            await cog.stop_server(ctx)
-            await self.send_temporary_message(interaction.channel, "🛑 關閉 7 Days to Die 指令已執行")
+            result = await cog.stop_server(ctx)
+            if result is True:
+                await self.send_temporary_message(interaction.channel, "🛑 7 Days 關閉成功")
+                await self.schedule_status_update(interaction)
+            elif result is False:
+                await self.send_temporary_message(interaction.channel, "⚠️ 7 Days 尚未啟動")
+            else:
+                await self.send_temporary_message(interaction.channel, "❌ 7 Days 關閉失敗")
 
     @discord.ui.button(label="查詢狀態", style=discord.ButtonStyle.blurple, custom_id="status")
     async def check_status(self, interaction: discord.Interaction, button: discord.ui.Button):
         await interaction.response.defer()
         embed = await get_combined_status_embed(self.bot)
         await interaction.message.edit(embed=embed)
+
 
 
 

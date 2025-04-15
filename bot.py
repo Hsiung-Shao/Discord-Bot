@@ -2,6 +2,7 @@ import discord
 import asyncio
 from discord.ext import commands
 from config import BOT_TOKEN
+from tasks.panel_updater import setup_panel_auto_updater
 
 intents = discord.Intents.all()
 intents.messages = True
@@ -35,6 +36,7 @@ async def main():
                 print(f"✅ 成功載入模組：{ext}")
             except Exception as e:
                 print(f"❌ 載入模組失敗：{ext}，錯誤：{e}")
+        setup_panel_auto_updater(bot)
         await bot.start(BOT_TOKEN)
 
 if __name__ == "__main__":
