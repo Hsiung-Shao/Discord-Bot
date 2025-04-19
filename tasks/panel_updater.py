@@ -1,9 +1,19 @@
+# tasks/status_updater.py
+
 from discord.ext import tasks
-from discord.ext.commands import Bot
 from config import CONTROL_THREAD_ID
 from commands.commandspanel import get_combined_status_embed
 
-def setup_panel_auto_updater(bot: Bot):
+# 任務變數定義在全域，避免重複定義
+_panel_update_task = None
+
+def setup_panel_auto_updater(bot):
+    global _panel_update_task
+
+    # 若任務已經存在，就不重複建立
+    if _panel_update_task is not None:
+        return
+
     @tasks.loop(minutes=5)
     async def update_panel_embed():
         try:
@@ -22,7 +32,5 @@ def setup_panel_auto_updater(bot: Bot):
         except Exception as e:
             print(f"❌ 自動更新控制面板失敗：{e}")
 
-    @bot.event
-    async def on_ready():
-        if not update_panel_embed.is_running():
-            update_panel_embed.start()
+    _panel_update_task = update_panel_embed
+    _panel_update_task.start()
