@@ -20,6 +20,7 @@ initial_extensions = [
     "commands.sevendayserver",
     "commands.commandspanel",
     "commands.anime_songs",
+    "commands.admin"
 ]
 
 @bot.event
