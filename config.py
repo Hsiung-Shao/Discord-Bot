@@ -31,3 +31,6 @@ BDNEWS_DATA_FILE = os.getenv("BDNEWS_DATA_FILE", "data/news_data.json")
 
 # BD2 News channel ID
 BDNEWS_THREAD_ID = int(os.getenv("BDNEWS_THREAD_ID", 0))
+
+ANIME_SONG_DATA_FILE = os.getenv("ANIME_SONG_DATA_FILE")
+

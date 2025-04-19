@@ -18,7 +18,8 @@ initial_extensions = [
     "commands.bdnews",           # <-- 這邊是你剛剛完成的 BD2 模組，名稱為 bdnews.py
     "commands.minecraftserver",
     "commands.sevendayserver",
-    "commands.commandspanel"
+    "commands.commandspanel",
+    "commands.anime_songs",
 ]
 
 @bot.event
