@@ -1,15 +1,33 @@
 import os
 import json
 import requests
+import subprocess
 from bs4 import BeautifulSoup
 from collections import defaultdict
-from datetime import datetime
 
 DATA_FOLDER = "data"
 DATA_FILE = os.path.join(DATA_FOLDER, "anime_songs.json")
 os.makedirs(DATA_FOLDER, exist_ok=True)
 
 SEASON_MONTHS = {1: "Q1", 4: "Q2", 7: "Q3", 10: "Q4"}
+
+
+def search_youtube_link_yt_dlp(query: str) -> str | None:
+    try:
+        command = [
+            "yt-dlp",
+            f"ytsearch1:{query}",
+            "--print", "%(webpage_url)s",
+            "--no-warnings",
+            "--skip-download"
+        ]
+        result = subprocess.run(command, stdout=subprocess.PIPE, stderr=subprocess.DEVNULL, text=True, timeout=10)
+        url = result.stdout.strip()
+        return url if url.startswith("http") else None
+    except Exception as e:
+        print(f"❌ yt-dlp 搜尋錯誤：{e}")
+        return None
+
 
 def parse_acgsecrets_season(url: str, season_key: str) -> dict:
     try:
@@ -25,7 +43,6 @@ def parse_acgsecrets_season(url: str, season_key: str) -> dict:
 
         anime_blocks = soup.select('div.spannable-main-content')
         if not anime_blocks:
-            print(f"⚠️ 無法抓取 {season_key}，可能該頁不存在。")
             return {}
 
         for block in anime_blocks:
@@ -33,16 +50,18 @@ def parse_acgsecrets_season(url: str, season_key: str) -> dict:
             if not data_tag:
                 continue
 
-            anime_key = data_tag.get_text(strip=True)
-
             title_info = block.select_one('.anime_info.main.site-content-float .anime_names')
             if title_info:
                 title_localized = title_info.select_one('.entity_localized_name')
                 title_original = title_info.select_one('.entity_original_name')
-                if title_localized:
-                    anime_data[anime_key]["title_localized"] = title_localized.get_text(strip=True)
-                if title_original:
-                    anime_data[anime_key]["title_original"] = title_original.get_text(strip=True)
+                anime_key = title_localized.get_text(strip=True) if title_localized else data_tag.get_text(strip=True)
+                anime_data[anime_key]["title_localized"] = anime_key
+                anime_data[anime_key]["title_original"] = title_original.get_text(strip=True) if title_original else ""
+            else:
+                continue
+
+            yt_links = [a["href"] for a in block.select('a.youtube[href]') if "youtube.com/watch" in a["href"]]
+            yt_index = 0
 
             for music in block.select('.anime_music'):
                 kind_tag = music.select_one('.song_type')
@@ -54,26 +73,33 @@ def parse_acgsecrets_season(url: str, season_key: str) -> dict:
                     continue
 
                 kind = kind_tag.get_text(strip=True).lower()
-                title = song_tag.get_text(strip=True)
+                musictitle = song_tag.get_text(strip=True)
                 artist = artist_tag.get_text(strip=True) if artist_tag else "未知"
                 singer = singer_tag.get_text(strip=True) if singer_tag else "未知"
 
+                link = yt_links[yt_index] if yt_index < len(yt_links) else None
+                yt_index += 1
+
+                if not link:
+                    query = f"{musictitle} {singer}"
+                    link = search_youtube_link_yt_dlp(query)
+
                 if kind in ['op', 'ed']:
                     anime_data[anime_key][kind].append({
-                        "title": title,
+                        "musictitle": musictitle,
                         "artist": artist,
                         "singer": singer,
-                        "link": None
+                        "link": link
                     })
 
-        print(f"✅ 已抓取 {season_key}")
         return {season_key: dict(anime_data)}
 
     except Exception as e:
-        print(f"❌ 抓取 {season_key} 時發生錯誤：{e}")
+        print(f"❌ 抓取 {season_key} 發生錯誤：{e}")
         return {}
 
-def batch_fetch(start_year=2000, end_year=2025, end_quarter=2):
+
+def batch_fetch(start_year=2017, end_year=2025, end_quarter=2):
     all_data = {}
     for year in range(start_year, end_year + 1):
         for month in [1, 4, 7, 10]:
@@ -83,6 +109,7 @@ def batch_fetch(start_year=2000, end_year=2025, end_quarter=2):
 
             season_key = f"{year}-{quarter}"
             url = f"https://acgsecrets.hk/bangumi/{year}{month:02d}/"
+            print(f"📡 正在抓取：{season_key}")
             season_data = parse_acgsecrets_season(url, season_key)
 
             if season_data:
