@@ -91,6 +91,27 @@ def parse_acgsecrets_season(url: str, season_key: str) -> dict:
                         "singer": singer,
                         "link": link
                     })
+            if not anime_data[anime_key]["op"]:
+                op_query = anime_data[anime_key]["title_localized"] + " OP"
+                op_link = search_youtube_link_yt_dlp(op_query)
+                if op_link:
+                    anime_data[anime_key]["op"].append({
+                        "musictitle": op_query,
+                        "artist": "未知",
+                        "singer": "未知",
+                        "link": op_link
+                    })
+
+            if not anime_data[anime_key]["ed"]:
+                ed_query = anime_data[anime_key]["title_localized"] + " ED"
+                ed_link = search_youtube_link_yt_dlp(ed_query)
+                if ed_link:
+                    anime_data[anime_key]["ed"].append({
+                        "musictitle": ed_query,
+                        "artist": "未知",
+                        "singer": "未知",
+                        "link": ed_link
+                    })
 
         return {season_key: dict(anime_data)}
 
@@ -119,5 +140,3 @@ def batch_fetch(start_year=2017, end_year=2025, end_quarter=2):
         json.dump(all_data, f, ensure_ascii=False, indent=2)
     print(f"\n📦 所有季度資料已寫入 {DATA_FILE}")
 
-if __name__ == "__main__":
-    batch_fetch()
