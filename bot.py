@@ -2,8 +2,9 @@ import discord
 import asyncio
 from discord.ext import commands
 from config import BOT_TOKEN
-from commands.commandspanel import ServerControlPanelView, get_combined_status_embed
 from config import CONTROL_THREAD_ID
+from commands.commandspanel import ServerControlPanelView, get_combined_status_embed
+# from tasks.anime_song_scheduler import start_anime_song_updater
 
 intents = discord.Intents.all()
 intents.messages = True
@@ -19,15 +20,15 @@ initial_extensions = [
     "commands.minecraftserver",
     "commands.sevendayserver",
     "commands.commandspanel",
-    "commands.anime_songs",
     "commands.admin"
 ]
 
 @bot.event
 async def on_ready():
     print(f"✅ Bot 已上線：{bot.user}")
+    asyncio.create_task(initialize_panel(bot))
 
-    # 🔁 1. 清除舊面板
+async def initialize_panel(bot):
     try:
         channel = await bot.fetch_channel(CONTROL_THREAD_ID)
         async for msg in channel.history(limit=10):
@@ -37,7 +38,6 @@ async def on_ready():
     except Exception as e:
         print(f"⚠️ 無法清除舊面板訊息：{e}")
 
-    # 📤 2. 發送新面板並註冊 View
     try:
         embed = await get_combined_status_embed(bot)
         view = ServerControlPanelView(bot)
@@ -47,15 +47,12 @@ async def on_ready():
     except Exception as e:
         print(f"❌ 發送新控制面板失敗：{e}")
 
-    # 🔁 3. 啟動自動更新面板狀態任務（在 View 註冊後）
     try:
         from tasks.panel_updater import setup_panel_auto_updater
         setup_panel_auto_updater(bot)
         print("🛠️ 面板狀態更新排程已啟動")
     except Exception as e:
         print(f"❌ 啟動面板自動更新任務失敗：{e}")
-
-    
 
 @bot.event
 async def on_command_error(ctx, error):

@@ -2,9 +2,11 @@ import discord
 from discord.ext import commands
 import asyncio
 import psutil
+from discord import Embed, Color
 from mcstatus import JavaServer
 from datetime import datetime
 from config import CONTROL_THREAD_ID
+from pytz import timezone
 
 class ServerControlPanelView(discord.ui.View):
     def __init__(self, bot):
@@ -97,8 +99,6 @@ class ServerControlPanelView(discord.ui.View):
         await interaction.message.edit(embed=embed)
 
 
-
-
 class CommandPanel(commands.Cog):
     def __init__(self, bot):
         self.bot = bot
@@ -110,6 +110,10 @@ class CommandPanel(commands.Cog):
         await thread.send(embed=embed, view=ServerControlPanelView(self.bot))
 
 
+async def safe_process_iter():
+    loop = asyncio.get_running_loop()
+    return await loop.run_in_executor(None, lambda: list(psutil.process_iter(['name', 'cmdline'])))
+
 async def get_combined_status_embed(bot) -> discord.Embed:
     embed = discord.Embed(
         title="📊 伺服器狀態總覽",
@@ -117,10 +121,11 @@ async def get_combined_status_embed(bot) -> discord.Embed:
         color=discord.Color.dark_teal()
     )
 
-    # Minecraft 狀態
+    # ✅ Minecraft 狀態
     try:
         mc = JavaServer("127.0.0.1", 25565)
-        status = mc.status()
+        status = await mc.async_status()
+
         mc_cog = bot.get_cog("MinecraftServerControl")
         last_start = getattr(mc_cog, "last_started", None)
         last_backup = getattr(mc_cog, "last_backup", None)
@@ -132,20 +137,25 @@ async def get_combined_status_embed(bot) -> discord.Embed:
             mc_info += f"\n最後備份：{last_backup.strftime('%Y-%m-%d %H:%M:%S')}"
 
         embed.add_field(name="🟢 Minecraft", value=mc_info, inline=False)
+
     except Exception:
         embed.add_field(name="🔴 Minecraft", value="伺服器未執行或無法連線。", inline=False)
 
-    # 7 Days to Die 狀態
+    # ✅ 7 Days to Die 狀態
     try:
         seven_cog = bot.get_cog("SevenDayServerControl")
         last_start = getattr(seven_cog, "last_started", None)
         last_backup = getattr(seven_cog, "last_backup", None)
 
         running = False
-        for proc in psutil.process_iter(['name', 'cmdline']):
-            if proc.info['name'] and "7DaysToDieServer" in proc.info['name']:
-                running = True
-                break
+        processes = await safe_process_iter()
+        for proc in processes:
+            try:
+                if proc.info['name'] and "7DaysToDieServer" in proc.info['name']:
+                    running = True
+                    break
+            except (psutil.NoSuchProcess, psutil.AccessDenied):
+                continue
 
         if running:
             info = "狀態：🟢 在線中"
@@ -160,7 +170,7 @@ async def get_combined_status_embed(bot) -> discord.Embed:
     except Exception as e:
         embed.add_field(name="⚠️ 7 Days 狀態錯誤", value=str(e), inline=False)
 
-    # 額外固定資訊
+    # ✅ 額外資訊
     embed.add_field(
         name="🌐 伺服器 IP",
         value="`26.82.236.63`  |  `125.228.138.70`",
@@ -172,8 +182,12 @@ async def get_combined_status_embed(bot) -> discord.Embed:
         inline=False
     )
 
-    return embed
+    # ✅ 最後更新時間
+    tz = timezone("Asia/Taipei")
+    now = datetime.now(tz).strftime("%Y-%m-%d %H:%M:%S")
+    embed.set_footer(text=f"🕒 最後更新時間：{now}")
 
+    return embed
 
 # 🔧 註冊 Cog
 async def setup(bot):
