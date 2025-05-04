@@ -14,7 +14,7 @@ def setup_panel_auto_updater(bot):
     if _panel_update_task is not None:
         return
 
-    @tasks.loop(minutes=5)
+    @tasks.loop(seconds=60)
     async def update_panel_embed():
         try:
             channel = await bot.fetch_channel(CONTROL_THREAD_ID)
