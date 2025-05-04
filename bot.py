@@ -9,8 +9,9 @@ from discord.ext import commands
 from config import BOT_TOKEN
 from config import CONTROL_THREAD_ID
 from commands.commandspanel import ServerControlPanelView, get_combined_status_embed
+from utils.logger import get_logger
 # from tasks.anime_song_scheduler import start_anime_song_updater
-
+logger = get_logger(__name__)
 intents = discord.Intents.all()
 intents.messages = True
 intents.message_content = True
@@ -36,28 +37,32 @@ async def on_ready():
 async def initialize_panel(bot):
     try:
         channel = await bot.fetch_channel(CONTROL_THREAD_ID)
-        async for msg in channel.history(limit=10):
-            if msg.author == bot.user and msg.embeds and msg.components:
-                await msg.delete()
-                print("🧹 已刪除過期的控制面板訊息")
+        async for msg in channel.history(limit=None, oldest_first=True):
+            if msg.author == bot.user:
+                try:
+                    await msg.delete()
+                    await asyncio.sleep(0.3)  # 避免 rate limit
+                except Exception as e:
+                    logger.warning(f"⚠️ 刪除訊息失敗：{e}")
+        logger.info("🧹 已刪除所有機器人歷史訊息")
     except Exception as e:
-        print(f"⚠️ 無法清除舊面板訊息：{e}")
+        logger.warning(f"⚠️ 無法清除舊訊息：{e}")
 
     try:
         embed = await get_combined_status_embed(bot)
         view = ServerControlPanelView(bot)
-        await channel.send(embed=embed, view=view)
+        msg = await channel.send(embed=embed, view=view)
         bot.add_view(view)
-        print("📤 已重新發送新的控制面板")
+        logger.info(f"📤 已發送新的控制面板訊息 ID: {msg.id}")
     except Exception as e:
-        print(f"❌ 發送新控制面板失敗：{e}")
+        logger.error(f"❌ 發送新控制面板失敗：{e}")
 
     try:
         from tasks.panel_updater import setup_panel_auto_updater
         setup_panel_auto_updater(bot)
-        print("🛠️ 面板狀態更新排程已啟動")
+        logger.info("🛠️ 面板狀態更新排程已啟動")
     except Exception as e:
-        print(f"❌ 啟動面板自動更新任務失敗：{e}")
+        logger.error(f"❌ 啟動面板自動更新任務失敗：{e}")
 
 @bot.event
 async def on_command_error(ctx, error):
@@ -68,9 +73,9 @@ async def main():
         for ext in initial_extensions:
             try:
                 await bot.load_extension(ext)
-                print(f"✅ 成功載入模組：{ext}")
+                logger.info(f"✅ 成功載入模組：{ext}")
             except Exception as e:
-                print(f"❌ 載入模組失敗：{ext}，錯誤：{e}")
+                logger.info(f"❌ 載入模組失敗：{ext}，錯誤：{e}")
         await bot.start(BOT_TOKEN)
 
 if __name__ == "__main__":
