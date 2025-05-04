@@ -16,3 +16,4 @@ venv/
 
 # 備份資料
 logs/
+data/

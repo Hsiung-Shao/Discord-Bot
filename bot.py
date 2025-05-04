@@ -17,7 +17,8 @@ from backups.seven_days_backup import SevenDaysBackupHandler
 from config import MINECRAFT_BASE_PATH, SEVENDAY_SAVE_PATH, BACKUP_ROOT
 
 from utils.logger import get_logger
-# from tasks.anime_song_scheduler import start_anime_song_updater
+from tasks.auto_backup_task import AutoBackupTask
+
 logger = get_logger(__name__)
 intents = discord.Intents.all()
 intents.messages = True
@@ -26,10 +27,10 @@ intents.guilds = True
 
 bot = commands.Bot(command_prefix="!", intents=intents)
 
-# 要啟用的功能模組 (cogs)     "commands.sevendayserver"
+# 要啟用的功能模組 (cogs)
 initial_extensions = [
     "commands.forwarder",
-    "commands.bdnews",           # <-- 這邊是你剛剛完成的 BD2 模組，名稱為 bdnews.py
+    "commands.bdnews",
     "commands.minecraftserver",
     "commands.sevendayserver",
     "commands.commandspanel",
@@ -38,27 +39,28 @@ initial_extensions = [
 
 @bot.event
 async def on_ready():
-    print(f"✅ Bot 已上線：{bot.user}")
+    logger.info(f"✅ Bot 已上線：{bot.user}")
     asyncio.create_task(initialize_panel(bot))
     await asyncio.sleep(5)
-    
-    backup_manager = BackupManager()
 
+    backup_manager = BackupManager()
     backup_manager.register_handler(
         MinecraftBackupHandler(
             world_path=os.path.join(MINECRAFT_BASE_PATH, "world"),
             backup_root=BACKUP_ROOT
         )
     )
-
     backup_manager.register_handler(
         SevenDaysBackupHandler(
             save_path=SEVENDAY_SAVE_PATH,
             backup_root=BACKUP_ROOT
         )
     )
-
     bot.backup_manager = backup_manager
+
+    # 初始化備份任務
+    bot.backup_task = AutoBackupTask(bot)
+    logger.info("📦 自動備份任務已註冊")
 
 async def initialize_panel(bot):
     try:
@@ -67,7 +69,7 @@ async def initialize_panel(bot):
             if msg.author == bot.user:
                 try:
                     await msg.delete()
-                    await asyncio.sleep(0.3)  # 避免 rate limit
+                    await asyncio.sleep(0.3)
                 except Exception as e:
                     logger.warning(f"⚠️ 刪除訊息失敗：{e}")
         logger.info("🧹 已刪除所有機器人歷史訊息")

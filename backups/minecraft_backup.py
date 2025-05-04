@@ -1,6 +1,7 @@
 import os
 import zipfile
 import asyncio
+import tempfile
 from datetime import datetime
 from backups.base_handler import BaseBackupHandler
 from utils.logger import get_logger
@@ -15,14 +16,19 @@ class MinecraftBackupHandler(BaseBackupHandler):
         self.backup_dir = os.path.join(backup_root, self.server_folder)
         os.makedirs(self.backup_dir, exist_ok=True)
 
-    async def perform_backup(self):
+    async def perform_backup(self, temp_dir=None):
         timestamp = datetime.now().strftime("%Y%m%d_%H%M")
-        zip_filename = os.path.join(self.backup_dir, f"{self.server_folder}_world_{timestamp}.zip")
+        zip_filename = f"{self.server_folder}_world_{timestamp}.zip"
+
+        if not temp_dir:
+            temp_dir = tempfile.mkdtemp()
+
+        temp_zip_path = os.path.join(temp_dir, zip_filename)
+
         try:
             loop = asyncio.get_event_loop()
-            await loop.run_in_executor(None, self._zip_world, zip_filename)
-            logger.info(f"[Minecraft] 備份完成：{zip_filename}")
-            return zip_filename
+            await loop.run_in_executor(None, self._zip_world, temp_zip_path)
+            return temp_zip_path
         except Exception as e:
             logger.error(f"[Minecraft] 備份失敗：{e.__class__.__name__} - {e}")
             raise
@@ -33,7 +39,16 @@ class MinecraftBackupHandler(BaseBackupHandler):
                 for file in files:
                     full_path = os.path.join(root, file)
                     rel_path = os.path.relpath(full_path, self.world_path)
-                    zipf.write(full_path, arcname=rel_path)
+                    try:
+                        zipf.write(full_path, arcname=rel_path)
+                    except PermissionError as e:
+                        logger.warning(f"[Minecraft] 跳過被鎖定檔案：{full_path}（{e}）")
+                    except Exception as e:
+                        logger.warning(f"[Minecraft] 壓縮檔案失敗：{full_path}（{e}）")
+
+
+    def get_final_path(self, zip_path):
+        return os.path.join(self.backup_dir, os.path.basename(zip_path))
 
     def get_latest_backup_info(self):
         backups = sorted(

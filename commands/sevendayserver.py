@@ -5,7 +5,10 @@ import asyncio
 from datetime import datetime
 import telnetlib
 from discord.ext import commands
+from utils.logger import get_logger
 from config import SEVENDAY_DIR, SEVENDAY_EXE, SEVENDAY_KEYWORD, SEVENDAY_TELNET_PORT, SEVENDAY_TELNET_PASSWORD
+
+logger = get_logger(__name__)
 
 class SevenDayServerControl(commands.Cog):
     def __init__(self, bot):
@@ -30,7 +33,7 @@ class SevenDayServerControl(commands.Cog):
     @commands.command(name="start7d")
     async def start_server(self, ctx):
         if self.is_process_running():
-            print("⚠️ 7 Days 已在執行中")
+            logger.warning("⚠️ 7 Days 已在執行中")
             return False
         try:
             subprocess.Popen(
@@ -39,16 +42,18 @@ class SevenDayServerControl(commands.Cog):
                 shell=True
             )
             self.last_started = datetime.now()
-            print("✅ 7 Days 啟動成功")
+            logger.info("✅ 7 Days 啟動成功")
+            if self.bot and hasattr(self.bot, "backup_task"):
+                self.bot.backup_task.start()
             return True
         except Exception as e:
-            print(f"❌ 7 Days 啟動失敗：{e}")
+            logger.error(f"❌ 7 Days 啟動失敗：{e}")
             return None
 
     @commands.command(name="stop7d")
     async def stop_server(self, ctx):
         if not self.is_process_running():
-            print("⚠️ 7 Days 尚未啟動")
+            logger.warning("⚠️ 7 Days 尚未啟動")
             return False
         try:
             with telnetlib.Telnet("127.0.0.1", self.telnet_port, timeout=10) as tn:
@@ -57,12 +62,19 @@ class SevenDayServerControl(commands.Cog):
                 tn.read_until(b"\n", timeout=5)
                 await asyncio.sleep(3)
                 tn.write(b"shutdown\n")
-            print("🛑 7 Days 關閉成功")
+            logger.info("🛑 7 Days 關閉成功")
+            if self.bot and hasattr(self.bot, "backup_task"):
+                asyncio.create_task(self._stop_backup_after_delay())
             return True
         except Exception as e:
-            print(f"❌ 7 Days 關閉失敗：{e}")
+            logger.error(f"❌ 7 Days 關閉失敗：{e}")
             return None
 
+    async def _stop_backup_after_delay(self):
+        await asyncio.sleep(300)
+        if hasattr(self.bot, "backup_task"):
+            self.bot.backup_task.stop()
+            logger.info("📦 自動備份任務已關閉")
 
 async def setup(bot):
     await bot.add_cog(SevenDayServerControl(bot))
