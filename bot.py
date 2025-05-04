@@ -1,5 +1,6 @@
 import sys
 import io
+import os
 sys.stdout = io.TextIOWrapper(sys.stdout.buffer, encoding='utf-8')
 sys.stderr = io.TextIOWrapper(sys.stderr.buffer, encoding='utf-8')
 
@@ -9,6 +10,12 @@ from discord.ext import commands
 from config import BOT_TOKEN
 from config import CONTROL_THREAD_ID
 from commands.commandspanel import ServerControlPanelView, get_combined_status_embed
+
+from backups.manager import BackupManager
+from backups.minecraft_backup import MinecraftBackupHandler
+from backups.seven_days_backup import SevenDaysBackupHandler
+from config import MINECRAFT_BASE_PATH, SEVENDAY_SAVE_PATH, BACKUP_ROOT
+
 from utils.logger import get_logger
 # from tasks.anime_song_scheduler import start_anime_song_updater
 logger = get_logger(__name__)
@@ -33,6 +40,25 @@ initial_extensions = [
 async def on_ready():
     print(f"✅ Bot 已上線：{bot.user}")
     asyncio.create_task(initialize_panel(bot))
+    await asyncio.sleep(5)
+    
+    backup_manager = BackupManager()
+
+    backup_manager.register_handler(
+        MinecraftBackupHandler(
+            world_path=os.path.join(MINECRAFT_BASE_PATH, "world"),
+            backup_root=BACKUP_ROOT
+        )
+    )
+
+    backup_manager.register_handler(
+        SevenDaysBackupHandler(
+            save_path=SEVENDAY_SAVE_PATH,
+            backup_root=BACKUP_ROOT
+        )
+    )
+
+    bot.backup_manager = backup_manager
 
 async def initialize_panel(bot):
     try:

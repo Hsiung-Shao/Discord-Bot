@@ -15,5 +15,4 @@ venv/
 .env
 
 # 備份資料
-backups/
 logs/

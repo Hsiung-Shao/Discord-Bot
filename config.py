@@ -34,3 +34,5 @@ BDNEWS_THREAD_ID = int(os.getenv("BDNEWS_THREAD_ID", 0))
 
 ANIME_SONG_DATA_FILE = os.getenv("ANIME_SONG_DATA_FILE")
 
+# Backup Directory
+BACKUP_ROOT = os.getenv("BACKUP_ROOT")
