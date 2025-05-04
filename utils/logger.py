@@ -11,7 +11,7 @@ log_filename = os.path.join(log_dir, f"{datetime.now():%Y-%m-%d}.log")
 
 # 設定 logging
 logging.basicConfig(
-    level=logging.INFO,
+    level=logging.DEBUG,
     format="%(asctime)s [%(levelname)s] %(name)s: %(message)s",
     handlers=[
         logging.FileHandler(log_filename, encoding="utf-8"),
