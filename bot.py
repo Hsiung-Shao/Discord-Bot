@@ -3,21 +3,19 @@ import io
 import os
 sys.stdout = io.TextIOWrapper(sys.stdout.buffer, encoding='utf-8')
 sys.stderr = io.TextIOWrapper(sys.stderr.buffer, encoding='utf-8')
-
 import discord
 import asyncio
 from discord.ext import commands
 from config import BOT_TOKEN
 from config import CONTROL_THREAD_ID
 from commands.commandspanel import ServerControlPanelView, get_combined_status_embed
-
 from backups.manager import BackupManager
 from backups.minecraft_backup import MinecraftBackupHandler
 from backups.seven_days_backup import SevenDaysBackupHandler
 from config import MINECRAFT_BASE_PATH, SEVENDAY_SAVE_PATH, BACKUP_ROOT
-
 from utils.logger import get_logger
 from tasks.auto_backup_task import AutoBackupTask
+from tasks.log_compressor import LogCompressor
 
 logger = get_logger(__name__)
 intents = discord.Intents.all()
@@ -57,9 +55,9 @@ async def on_ready():
         )
     )
     bot.backup_manager = backup_manager
-
     # 初始化備份任務
     bot.backup_task = AutoBackupTask(bot)
+    LogCompressor(bot)
     logger.info("📦 自動備份任務已註冊")
 
 async def initialize_panel(bot):

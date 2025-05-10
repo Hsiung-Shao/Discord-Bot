@@ -160,9 +160,6 @@ async def get_combined_status_embed(bot) -> discord.Embed:
 
         if running:
             info = "狀態：🟢 在線中"
-            now_server_status = bot.user.activity
-            if now_server_status:
-                info += f"\n當前狀態:{now_server_status.type.name.capitalize()} {now_server_status.name}"
             if last_start:
                 info += f"\n啟動時間：{last_start.strftime('%Y-%m-%d %H:%M:%S')}"
             if last_backup:
