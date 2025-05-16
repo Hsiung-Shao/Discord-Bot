@@ -5,10 +5,10 @@ import asyncio
 import discord
 from bs4 import BeautifulSoup
 from discord.ext import commands
-from config import BDNEWS_DATA_FILE
-from config import BDNEWS_THREAD_ID
+from config import BDNEWS_DATA_FILE, BDUST_NEWS_THREAD_ID, BDUST_REMINDER_CHANNEL_ID, BDUST_REMIND_USERS_FILE
 from apscheduler.schedulers.asyncio import AsyncIOScheduler
 from apscheduler.triggers.interval import IntervalTrigger
+from apscheduler.triggers.cron import CronTrigger  # 新增：每週提醒使用
 from utils.logger import get_logger
 
 logger = get_logger("BDNews")
@@ -23,7 +23,7 @@ lang_map = {
 }
 current_lang = 'zh-tw'
 
-class News(commands.Cog):
+class Bdust(commands.Cog):
     def __init__(self, bot):
         self.bot = bot
         self.scheduler = AsyncIOScheduler()
@@ -34,6 +34,7 @@ class News(commands.Cog):
 
     def _start_scheduler(self):
         self.scheduler.add_job(self._fetch_news_data, IntervalTrigger(hours=1))
+        self.scheduler.add_job(self._weekly_reminder, CronTrigger(day_of_week='sun', hour=22, minute=30, timezone='Asia/Taipei'))
         self.scheduler.start()
         logger.info("BDNews 排程器已啟動，每小時執行一次。")
 
@@ -100,7 +101,7 @@ class News(commands.Cog):
         logger.info(f"最新新聞：{subject} [{tag}] 發布於 {published_at}")
 
         content = attributes.get('NewContent', '無內容')
-        await self.notify_news(BDNEWS_THREAD_ID, content)
+        await self.notify_news(BDUST_NEWS_THREAD_ID, content)
 
     def clean_html_and_extract_images(self, raw_html):
         soup = BeautifulSoup(raw_html, "html.parser")
@@ -157,5 +158,64 @@ class News(commands.Cog):
         except Exception as e:
             logger.warning(f"❌ 發送訊息時發生未知錯誤：{e}")
 
+
+    # ==========================
+    # 🆕 每週提醒系統 - 起始
+    # ==========================
+
+    def _load_reminders(self):
+        if not os.path.exists(BDUST_REMIND_USERS_FILE):
+            return []
+        with open(BDUST_REMIND_USERS_FILE, "r", encoding="utf-8") as f:
+            return json.load(f)
+
+    def _save_reminders(self, user_ids):
+        with open(BDUST_REMIND_USERS_FILE, "w", encoding="utf-8") as f:
+            json.dump(user_ids, f)
+
+    @commands.command(name="remindme")
+    async def remind_me(self, ctx):
+        user_ids = self._load_reminders()
+        if ctx.author.id not in user_ids:
+            user_ids.append(ctx.author.id)
+            self._save_reminders(user_ids)
+            await ctx.send("✅ 你已加入每週提醒名單。")
+        else:
+            await ctx.send("ℹ️ 你已在提醒名單中。")
+
+    @commands.command(name="unremindme")
+    async def unremind_me(self, ctx):
+        user_ids = self._load_reminders()
+        if ctx.author.id in user_ids:
+            user_ids.remove(ctx.author.id)
+            self._save_reminders(user_ids)
+            await ctx.send("✅ 你已退出每週提醒名單。")
+        else:
+            await ctx.send("ℹ️ 你目前不在提醒名單中。")
+
+    @commands.command(name="listreminders")
+    async def list_reminders(self, ctx):
+        user_ids = self._load_reminders()
+        mentions = [f"<@{uid}>" for uid in user_ids]
+        if mentions:
+            await ctx.send("📋 當前提醒名單:\n" + "\n".join(mentions))
+        else:
+            await ctx.send("⚠️ 無人報名。")
+
+    async def _weekly_reminder(self):
+        user_ids = self._load_reminders()
+        if not user_ids or BDUST_REMINDER_CHANNEL_ID == 0:
+            logger.info("提醒名單為空或頻道未設定，跳過每週提醒。")
+            return
+
+        try:
+            channel = await self.bot.fetch_channel(BDUST_REMINDER_CHANNEL_ID)
+            mentions = " ".join([f"<@{uid}>" for uid in user_ids])
+            message = f"⏰ 本周PVP即將結算 {mentions}"
+            await channel.send(message)
+            logger.info("每週提醒已發送。")
+        except Exception as e:
+            logger.error(f"每週提醒發送失敗：{e}")
+    
 async def setup(bot):
-    await bot.add_cog(News(bot))
+    await bot.add_cog(Bdust(bot))

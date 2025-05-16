@@ -30,7 +30,11 @@ FORWARDER_CONFIG = os.getenv("FORWARDER_CONFIG", "data/forwarder_map.json")
 BDNEWS_DATA_FILE = os.getenv("BDNEWS_DATA_FILE", "data/news_data.json")
 
 # BD2 News channel ID
-BDNEWS_THREAD_ID = int(os.getenv("BDNEWS_THREAD_ID", 0))
+BDUST_NEWS_THREAD_ID = int(os.getenv("BDNEWS_THREAD_ID", 0))
+BDUST_REMINDER_CHANNEL_ID = int(os.getenv("BDUST_REMINDER_CHANNEL_ID", "0"))
+BDUST_DATA_FILE = "data/news_data.json"
+BDUST_REMIND_USERS_FILE = "data/bdust_remind_users.json"
+
 
 ANIME_SONG_DATA_FILE = os.getenv("ANIME_SONG_DATA_FILE")
 
