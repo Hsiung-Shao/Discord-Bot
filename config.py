@@ -40,3 +40,10 @@ ANIME_SONG_DATA_FILE = os.getenv("ANIME_SONG_DATA_FILE")
 
 # Backup Directory
 BACKUP_ROOT = os.getenv("BACKUP_ROOT")
+
+# Riot Games News
+VALORANT_BASE_URL = "https://playvalorant.com"
+VALORANT_THREAD_ID = int(os.getenv("VALORANT_THREAD_ID", 0))
+LOL_BASE_URL = "https://www.leagueoflegends.com"
+LOL_THREAD_ID = int(os.getenv("LOL_THREAD_ID", 0))
+RIOT_DATA_FILE = os.getenv("RIOT_DATA_FILE", "data/riotnews.json")

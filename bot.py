@@ -32,6 +32,7 @@ initial_extensions = [
     "commands.minecraftserver",
     "commands.sevendayserver",
     "commands.commandspanel",
+    "commands.riotnews",
     "commands.admin"
 ]
 

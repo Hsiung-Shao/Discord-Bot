@@ -34,7 +34,7 @@ class Forwarder(commands.Cog):
         if message.author.bot:
             return
 
-        logger.info(f"[DEBUG] 收到訊息來自 {message.channel.id}: {message.content}")
+        logger.info(f"[DEBUG] 收到訊息來自使用者 {message.author.id}({message.author})於頻道 {message.channel.id}：{message.content}")
         source_id = str(message.channel.id)
         if source_id not in self.forward_map:
             return
