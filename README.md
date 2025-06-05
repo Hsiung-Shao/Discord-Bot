@@ -6,7 +6,7 @@
 ## 功能特色
 - 遊戲資訊推播 (Brown Dust 2, LoL, Valorant)
 - Minecraft/7 Days to Die 伺服器啟動、關閉、狀態顯示
-- 自動備份與擺檔系統
+- 自動備份系統
 - 定時提醒與推送
 - 訊息轉發模組
 - Discord 控制面板加上狀態 Embed 和按鈕
