@@ -47,3 +47,12 @@ VALORANT_THREAD_ID = int(os.getenv("VALORANT_THREAD_ID", 0))
 LOL_BASE_URL = "https://www.leagueoflegends.com"
 LOL_THREAD_ID = int(os.getenv("LOL_THREAD_ID", 0))
 RIOT_DATA_FILE = os.getenv("RIOT_DATA_FILE", "data/riotnews.json")
+
+# Twitter/X Credentials
+TWITTER_USERNAME = os.getenv("TWITTER_USERNAME")
+TWITTER_EMAIL = os.getenv("TWITTER_EMAIL")
+TWITTER_PASSWORD = os.getenv("TWITTER_PASSWORD")
+
+# FF14 News
+FF14_NEWS_THREAD_ID = int(os.getenv("FF14_NEWS_THREAD_ID", 0))
+FF14_DATA_FILE = os.getenv("FF14_DATA_FILE", "data/ff14news.json")

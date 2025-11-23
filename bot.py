@@ -33,7 +33,10 @@ initial_extensions = [
     "commands.sevendayserver",
     "commands.commandspanel",
     "commands.riotnews",
-    "commands.admin"
+    "commands.admin",
+    "commands.lol",
+    "commands.x_tracker",
+    "commands.ff14news"
 ]
 
 @bot.event

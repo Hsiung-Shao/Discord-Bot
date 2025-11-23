@@ -1,104 +1,130 @@
-# Discord Bot – 遊戲資訊推播與 Minecraft、7 Days to Die 伺服器控制
+# Discord Bot Project
 
-## 專案簡介
-這是一個專為個人 Discord 伺服器打造的多功能 Bot。它組合了**遊戲資訊自動更新**與**遊戲伺服器控制台**功能，能自動在 Discord 上推播特定遊戲的最新資訊，同時允許管理員通過 Discord 指令或介面控制 Minecraft 及 7 Days to Die 等遊戲伺服器。
+這是一個多功能的 Discord 機器人，整合了多種遊戲新聞爬蟲、社群媒體追蹤、伺服器管理與訊息轉發功能。
 
-## 功能特色
-- 遊戲資訊推播 (Brown Dust 2, LoL, Valorant)
-- Minecraft/7 Days to Die 伺服器啟動、關閉、狀態顯示
-- 自動備份系統
-- 定時提醒與推送
-- 訊息轉發模組
-- Discord 控制面板加上狀態 Embed 和按鈕
-- Cog 管理指令（load, reload, unload, listcogs）
+## 📋 功能列表
 
-## 安裝與執行
-1. **下載專案**
-    ```bash
-    git clone https://github.com/Hsiung-Shao/Discord-Bot.git
-    cd Discord-Bot
-    ```
+### 📰 新聞爬蟲
+- **FF14 新聞**: 自動抓取 FINAL FANTASY XIV 台灣官網的最新消息。
+- **Brown Dust 2 新聞**: 追蹤並發送 Brown Dust 2 的最新公告與開發者筆記。
+- **Riot Games 新聞**: 支援 Valorant (特戰英豪) 與 League of Legends (英雄聯盟) 的改版資訊更新。
 
-2. **建立 `.env` 檔案**
-    請將下列格式儲存為 `.env`。
-    ```env
-    # Discord Bot 身分與控制項目
-    BOT_TOKEN=<您的 Discord Bot Token>
-    CONTROL_THREAD_ID=<控制面板討論串的 Channel/Thread ID>
-    
-    # Minecraft 伺服器設定
-    MINECRAFT_BASE_PATH=<Minecraft 伺服器主程式路徑>
-    MINECRAFT_START_BAT=<啟動 Minecraft 伺服器的批次檔名稱，例如 start.bat>
-    MINECRAFT_JAR_KEYWORD=<用於辨識 Minecraft 進程的關鍵字（Jar 檔名片段）>
-    MINECRAFT_RCON_PORT=<Minecraft RCON 埠號，如 25575>
-    MINECRAFT_RCON_PASSWORD=<Minecraft RCON 密碼>
-    MINECRAFT_STATUS_THREAD_ID=<Minecraft 狀態討論串的 ID>
-    
-    # 7 Days to Die 伺服器設定
-    SEVENDAY_DIR=<7 Days 伺服器執行檔所在目錄>
-    SEVENDAY_EXE=<7 Days 伺服器執行檔檔名，例如 7DaysToDieServer.exe>
-    SEVENDAY_KEYWORD=<用於辨識 7 Days 進程的關鍵字（執行檔名片段）>
-    SEVENDAY_TELNET_PORT=<7 Days Telnet 控制埠號（預設 8081）>
-    SEVENDAY_TELNET_PASSWORD=<7 Days Telnet 密碼>
-    SEVENDAY_STATUS_THREAD_ID=<7 Days 狀態討論串的 ID>
-    SEVENDAY_SAVE_PATH=<7 Days 世界存檔資料夾路徑>
-    
-    # 資料與備份設定
-    BACKUP_ROOT=<備份檔案存放根目錄路徑>
-    BDNEWS_THREAD_ID=<Brown Dust 2 新聞公告討論串 ID，如不使用可設為0>
-    BDUST_REMINDER_CHANNEL_ID=<每週提醒目標頻道 ID，如不使用可設為0>
-    VALORANT_THREAD_ID=<Valorant 新聞推播討論串 ID，如不使用則0>
-    LOL_THREAD_ID=<LoL 新聞推播討論串 ID，如不使用則0>
+### 🔍 社群追蹤
+- **X (Twitter) 追蹤**: 使用 Twikit 追蹤特定帳號的推文，並即時轉發至指定頻道。
 
-    ```
+### 🎮 伺服器管理
+- **Minecraft 伺服器**: 支援透過 Discord 指令啟動/關閉伺服器，並包含狀態監控與自動備份功能。
+- **7 Days to Die 伺服器**: 支援透過 Discord 指令管理伺服器狀態與備份。
 
-3. **安裝相依套件**
+### ⚙️ 其他功能
+- **訊息轉發**: 跨頻道/伺服器訊息轉發系統。
+- **控制面板**: 提供圖形化介面 (Embed + Button) 來管理伺服器狀態。
+
+---
+
+## 📖 詳細功能說明
+
+### 1. FF14 新聞爬蟲 (`commands.ff14news`)
+自動追蹤 FF14 台灣官網新聞。
+- **特色**: 
+    - 支援「查看詳情」按鈕，點擊後自動抓取並發送完整文章內容（含圖片）。
+    - 自動過濾重複新聞。
+- **指令**:
+    - `!ff14test`: 手動觸發測試，從所有來源抓取最新 3 筆新聞並發送。
+
+### 2. Brown Dust 2 新聞 (`commands.bdnews`)
+追蹤 Brown Dust 2 官方 API 的新聞。
+- **特色**:
+    - 支援多國語言 API (預設繁體中文)。
+    - 自動解析 HTML 內容並以圖文並茂的方式發送。
+    - 每週 PVP 結算提醒功能。
+- **指令**:
+    - `!fetchnews`: 手動觸發新聞抓取。
+    - `!remindme`: 加入每週 PVP 結算提醒名單。
+    - `!unremindme`: 退出提醒名單。
+    - `!listreminders`: 查看提醒名單。
+
+### 3. Riot Games 新聞 (`commands.riotnews`)
+追蹤 Valorant 與 LoL 的改版資訊。
+- **特色**:
+    - 每日定時 (09:00, 20:00) 檢查更新。
+    - 自動解析 patch notes 日期，只發送最新的改版資訊。
+
+### 4. X (Twitter) 追蹤 (`commands.x_tracker`)
+使用 Twikit 庫模擬瀏覽器行為追蹤推文。
+- **指令**:
+    - `!xtrack add <username> [channel]`: 新增追蹤帳號。
+    - `!xtrack remove <username> [channel]`: 移除追蹤。
+    - `!xtrack list`: 列出所有追蹤中的帳號。
+    - `!xtrack check`: (管理員) 強制立即檢查更新。
+
+### 5. Minecraft 伺服器管理 (`commands.minecraftserver`)
+- **指令**:
+    - `!startmc`: 啟動 Minecraft 伺服器。
+    - `!stopmc`: 優雅關閉 Minecraft 伺服器 (發送公告 -> 存檔 -> 關閉)。
+
+### 6. 7 Days to Die 伺服器管理 (`commands.sevendayserver`)
+- **指令**:
+    - `!start7d`: 啟動 7 Days to Die 伺服器。
+    - `!stop7d`: 關閉 7 Days to Die 伺服器。
+
+---
+
+## 🛠️ 設定說明 (.env)
+
+請在專案根目錄建立 `.env` 檔案，並填入以下設定：
+
+```env
+# Discord Bot Token
+BOT_TOKEN=你的BotToken
+CONTROL_THREAD_ID=控制面板頻道ID
+
+# FF14 News
+FF14_NEWS_THREAD_ID=FF14新聞發送頻道ID
+FF14_DATA_FILE=data/ff14news.json
+
+# Brown Dust 2
+BDNEWS_THREAD_ID=BD2新聞發送頻道ID
+BDUST_REMINDER_CHANNEL_ID=提醒發送頻道ID
+
+# Riot Games
+VALORANT_THREAD_ID=特戰英豪新聞頻道ID
+LOL_THREAD_ID=英雄聯盟新聞頻道ID
+VALORANT_BASE_URL=https://playvalorant.com/zh-tw/news/
+LOL_BASE_URL=https://www.leagueoflegends.com/zh-tw/news/
+
+# Twitter/X Tracker
+TWITTER_USERNAME=你的Twitter帳號
+TWITTER_EMAIL=你的Twitter信箱
+TWITTER_PASSWORD=你的Twitter密碼
+
+# Minecraft Server
+MINECRAFT_BASE_PATH=伺服器路徑
+MINECRAFT_START_BAT=啟動腳本名稱.bat
+MINECRAFT_RCON_PORT=25575
+MINECRAFT_RCON_PASSWORD=Rcon密碼
+MINECRAFT_STATUS_THREAD_ID=狀態監控頻道ID
+
+# 7 Days to Die Server
+SEVENDAY_DIR=伺服器路徑
+SEVENDAY_EXE=啟動執行檔名稱.exe
+SEVENDAY_TELNET_PORT=8081
+SEVENDAY_TELNET_PASSWORD=Telnet密碼
+SEVENDAY_STATUS_THREAD_ID=狀態監控頻道ID
+SEVENDAY_SAVE_PATH=存檔路徑
+
+# Backup
+BACKUP_ROOT=備份存放路徑
+```
+
+## 🚀 安裝與執行
+
+1.  **安裝 Python 3.10+**
+2.  **安裝依賴套件**:
     ```bash
     pip install -r requirements.txt
     ```
-    如果未附上 `requirements.txt`，也可以用下列命令：
-    ```bash
-    pip install -U discord.py python-dotenv psutil aiohttp requests beautifulsoup4 apscheduler mcstatus mcrcon
-    ```
-
-4. **啟動 Bot**
+3.  **啟動機器人**:
     ```bash
     python bot.py
     ```
-
-## 預設語言
-- 預設為 **繁體中文**，不支援多語系
-- 時區為 Asia/Taipei
-
-## 目錄結構
-```bash
-Discord-Bot/
-├── bot.py                  # Bot 入口
-├── config.py               # 讀取 .env 參數
-├── commands/               # 指令與 UI 模組
-│   ├── minecraftserver.py
-│   ├── sevendayserver.py
-│   ├── commandspanel.py
-│   ├── bdnews.py
-│   ├── riotnews.py
-│   ├── forwarder.py
-│   └── admin.py
-├── backups/                # 備份系統
-│   ├── minecraft_backup.py
-│   ├── seven_days_backup.py
-│   └── manager.py
-├── tasks/                  # 背景排程任務
-│   ├── auto_backup_task.py
-│   ├── panel_updater.py
-│   ├── anime_song_scheduler.py
-│   └── log_compressor.py
-├── fetchers/
-│   └── acgsecrets.py
-├── utils/
-│   └── logger.py
-├── data/                   # 數據檔位置
-└── logs/                   # 日誌輸出
-```
-
-## 授權條款
-本專案目前 **未指定 License**，如需展開或商業應用請與作者聯繫。
