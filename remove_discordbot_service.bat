@@ -1,9 +1,26 @@
 @echo off
-REM 切換到 NSSM 目錄
-cd /d F:\Tools
+chcp 65001 >nul
+setlocal EnableDelayedExpansion
 
-REM 移除 DiscordBot 服務（confirm 表示不用再次確認）
-nssm remove DiscordBot confirm
+set "NSSM_PATH=D:\codeproject\python\DiscordBot\nssm\nssm.exe"
 
-echo ❌ DiscordBot 服務已移除！
+title Remove Discord Bot Service
+
+echo.
+echo ================================================
+echo    Remove Discord Bot Service
+echo ================================================
+echo.
+
+echo Stopping DiscordBot service...
+"%NSSM_PATH%" stop DiscordBot >nul 2>&1
+
+echo Removing DiscordBot service (confirm = no confirmation)...
+"%NSSM_PATH%" remove DiscordBot confirm
+
+echo.
+echo ================================================
+echo    [SUCCESS] DiscordBot service removed!
+echo ================================================
+echo.
 pause

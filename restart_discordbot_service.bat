@@ -1,9 +1,23 @@
 @echo off
-REM 切換到 NSSM 目錄
-cd /d F:\Tools\nssm\
+chcp 65001 >nul
+setlocal EnableDelayedExpansion
 
-REM 重新啟動 DiscordBot 服務
-nssm restart DiscordBot
+set "NSSM_PATH=D:\codeproject\python\DiscordBot\nssm\nssm.exe"
 
-echo 🔄 DiscordBot 服務已重啟！
+title Restart Discord Bot Service
+
+echo.
+echo ================================================
+echo    Restart Discord Bot Service
+echo ================================================
+echo.
+
+echo Restarting DiscordBot service...
+"%NSSM_PATH%" restart DiscordBot
+
+echo.
+echo ================================================
+echo    [SUCCESS] DiscordBot service restarted!
+echo ================================================
+echo.
 pause

@@ -3,14 +3,14 @@ import json
 import aiohttp
 import asyncio
 import discord
-from bs4 import BeautifulSoup
+from bs4 import BeautifulSoup, Tag, NavigableString
 from discord.ext import commands
 from discord.ui import View, Button
 from config import FF14_DATA_FILE, FF14_NEWS_THREAD_ID
 from apscheduler.schedulers.asyncio import AsyncIOScheduler
 from apscheduler.triggers.interval import IntervalTrigger
 from utils.logger import get_logger
-
+from urllib.parse import urljoin
 logger = get_logger("FF14News")
 
 class FF14News(commands.Cog):
@@ -145,21 +145,30 @@ class FF14News(commands.Cog):
         soup = BeautifulSoup(raw_html, "html.parser")
         content_parts = []
 
-        for element in soup.descendants:
-            if element.name == "img":
-                image_url = element.get("src")
-                if image_url:
-                    if not image_url.startswith('http'):
-                        image_url = f"https://www.ffxiv.com.tw{image_url}"
-                    content_parts.append({"type": "image", "content": image_url})
-            elif element.name is None and isinstance(element, str):
-                text_content = element.strip()
-                if text_content:
-                    if content_parts and content_parts[-1]["type"] == "text":
-                        content_parts[-1]["content"] += f"\n{text_content}"
-                    else:
-                        content_parts.append({"type": "text", "content": text_content})
-        
+        # 1) 先收集文字區塊（以段落、標題或 div p 為單位）
+        # 可依需要調整 tag 列表
+        text_tags = soup.find_all(['p', 'div', 'h1', 'h2', 'h3', 'li'])
+        seen_texts = set()
+        for tag in text_tags:
+            # 避免把整個 article 的文字重複加入（只取非空且去重）
+            text = tag.get_text(separator="\n", strip=True)
+            if text and text not in seen_texts:
+                content_parts.append({"type": "text", "content": text})
+                seen_texts.add(text)
+
+        # 2) 收集圖片（只遍歷 <img>，避免 descendants 導致的型別錯誤）
+        for img in soup.find_all('img'):
+            if not isinstance(img, Tag):
+                continue
+            # 優先 data-src（lazy load）再 fallback src
+            src = img.get("data-src") or img.get("src") or img.get("data-original")
+            if not src:
+                continue
+            src = src.strip()
+            # 用 urljoin 處理相對路徑或開頭為 //
+            full_url = urljoin("https://www.ffxiv.com.tw", src)
+            content_parts.append({"type": "image", "content": full_url})
+
         return content_parts
 
     async def send_news_message(self, channel, item):
@@ -215,7 +224,11 @@ class FF14News(commands.Cog):
                 await interaction.followup.send("無法獲取文章內容。", ephemeral=True)
                 return
 
-            content_parts = self.clean_html_and_extract_images(raw_html)
+            try:
+                content_parts = self.clean_html_and_extract_images(raw_html)
+            except Exception as e:
+                logger.error(f"clean_html_and_extract_images failed for {url}: {e}")
+                content_parts = []
             
             # Send to the channel directly instead of replying to the interaction
             target_channel = interaction.channel
