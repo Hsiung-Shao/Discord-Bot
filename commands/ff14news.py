@@ -6,12 +6,14 @@ import discord
 from bs4 import BeautifulSoup, Tag, NavigableString
 from discord.ext import commands
 from discord.ui import View, Button
-from config import FF14_DATA_FILE, FF14_NEWS_THREAD_ID
+from config import FF14_DATA_FILE
 from apscheduler.schedulers.asyncio import AsyncIOScheduler
 from apscheduler.triggers.interval import IntervalTrigger
 from utils.logger import get_logger
 from urllib.parse import urljoin
 logger = get_logger("FF14News")
+
+FF14_CHANNELS_FILE = "data/ff14news_channels.json"
 
 class FF14News(commands.Cog):
     def __init__(self, bot):
@@ -23,6 +25,55 @@ class FF14News(commands.Cog):
             "https://www.ffxiv.com.tw/web/news/news_list.aspx?category=2",
             "https://www.ffxiv.com.tw/web/news/news_list.aspx?category=3"
         ]
+        self.channels_config = self._load_channels_config()
+
+    def _load_channels_config(self):
+        """載入頻道配置"""
+        # 向後兼容：嘗試從環境變數讀取舊配置
+        from config import FF14_NEWS_THREAD_ID
+        
+        if not os.path.exists(FF14_CHANNELS_FILE):
+            default_config = {"channel_ids": []}
+            # 如果有舊的環境變數配置，遷移它
+            if FF14_NEWS_THREAD_ID and FF14_NEWS_THREAD_ID != 0:
+                default_config["channel_ids"] = [FF14_NEWS_THREAD_ID]
+                logger.info(f"從環境變數遷移 FF14 頻道配置: {FF14_NEWS_THREAD_ID}")
+            os.makedirs(os.path.dirname(FF14_CHANNELS_FILE), exist_ok=True)
+            with open(FF14_CHANNELS_FILE, 'w', encoding='utf-8') as f:
+                json.dump(default_config, f, indent=4)
+            return default_config
+        
+        try:
+            with open(FF14_CHANNELS_FILE, 'r', encoding='utf-8') as f:
+                config = json.load(f)
+                # 向後兼容：如果配置是舊格式（單一 ID），轉換為列表格式
+                if isinstance(config, dict) and "channel_ids" not in config:
+                    old_id = config.get("channel_id") or config.get("FF14_NEWS_THREAD_ID", 0)
+                    if old_id and old_id != 0:
+                        config = {"channel_ids": [old_id]}
+                    else:
+                        config = {"channel_ids": []}
+                    self._save_channels_config(config)
+                # 如果配置為空且有環境變數，遷移它
+                elif isinstance(config, dict) and not config.get("channel_ids") and FF14_NEWS_THREAD_ID and FF14_NEWS_THREAD_ID != 0:
+                    config["channel_ids"] = [FF14_NEWS_THREAD_ID]
+                    logger.info(f"從環境變數遷移 FF14 頻道配置到現有檔案: {FF14_NEWS_THREAD_ID}")
+                    self._save_channels_config(config)
+                return config
+        except Exception as e:
+            logger.error(f"載入 FF14 頻道配置失敗: {e}")
+            # 如果有環境變數，使用它作為後備
+            if FF14_NEWS_THREAD_ID and FF14_NEWS_THREAD_ID != 0:
+                return {"channel_ids": [FF14_NEWS_THREAD_ID]}
+            return {"channel_ids": []}
+
+    def _save_channels_config(self, config=None):
+        """儲存頻道配置"""
+        if config is None:
+            config = self.channels_config
+        os.makedirs(os.path.dirname(FF14_CHANNELS_FILE), exist_ok=True)
+        with open(FF14_CHANNELS_FILE, 'w', encoding='utf-8') as f:
+            json.dump(config, f, indent=4, ensure_ascii=False)
 
     async def cog_load(self):
         self._start_scheduler()
@@ -189,19 +240,30 @@ class FF14News(commands.Cog):
             logger.error(f"Failed to send news notification: {e}")
 
     async def notify_news(self, item):
-        if FF14_NEWS_THREAD_ID == 0:
-            logger.warning("FF14_NEWS_THREAD_ID not set, skipping notification.")
+        """推送新聞到所有配置的頻道（支援跨伺服器）"""
+        channel_ids = self.channels_config.get("channel_ids", [])
+        if not channel_ids:
+            logger.warning("FF14 沒有配置任何推送頻道，跳過通知")
             return
 
-        channel = self.bot.get_channel(FF14_NEWS_THREAD_ID)
-        if not channel:
+        success_count = 0
+        for channel_id in channel_ids:
             try:
-                channel = await self.bot.fetch_channel(FF14_NEWS_THREAD_ID)
+                # 使用 fetch_channel 以支援跨伺服器
+                channel = await self.bot.fetch_channel(channel_id)
+                if channel:
+                    await self.send_news_message(channel, item)
+                    success_count += 1
+                    logger.info(f"FF14 新聞已發送到頻道 {channel_id}")
+            except discord.NotFound:
+                logger.warning(f"找不到 FF14 頻道 {channel_id}")
+            except discord.Forbidden:
+                logger.warning(f"無權限存取 FF14 頻道 {channel_id}")
             except Exception as e:
-                logger.error(f"Could not fetch channel {FF14_NEWS_THREAD_ID}: {e}")
-                return
-
-        await self.send_news_message(channel, item)
+                logger.error(f"發送 FF14 新聞到頻道 {channel_id} 失敗: {e}")
+        
+        if success_count > 0:
+            logger.info(f"FF14 新聞已成功發送到 {success_count}/{len(channel_ids)} 個頻道")
 
     @commands.Cog.listener()
     async def on_interaction(self, interaction: discord.Interaction):
@@ -301,6 +363,131 @@ class FF14News(commands.Cog):
         except Exception as e:
             await ctx.send(f"Test failed: {e}")
             logger.error(f"Test push failed: {e}")
+
+    @commands.group(name="ff14channels", invoke_without_command=True)
+    async def ff14channels(self, ctx):
+        """FF14 新聞推送頻道管理"""
+        await ctx.send_help(ctx.command)
+
+    async def _resolve_channel(self, ctx, channel_input):
+        """解析頻道參數，支援同伺服器頻道和跨伺服器頻道 ID"""
+        if channel_input is None:
+            # 不提供參數，使用當前頻道
+            return ctx.channel
+        
+        if isinstance(channel_input, discord.TextChannel):
+            # 提供了頻道物件（同伺服器）
+            return channel_input
+        
+        # 嘗試作為頻道 ID（跨伺服器）
+        try:
+            channel_id = int(str(channel_input))
+            channel = await self.bot.fetch_channel(channel_id)
+            return channel
+        except (ValueError, discord.NotFound, discord.Forbidden):
+            # 如果解析失敗，嘗試作為同伺服器的頻道名稱或提及
+            try:
+                converter = commands.TextChannelConverter()
+                return await converter.convert(ctx, str(channel_input))
+            except:
+                raise commands.BadArgument(f"無法解析頻道：{channel_input}")
+
+    @ff14channels.command(name="add")
+    async def add_channel(self, ctx, channel_input=None):
+        """新增推送頻道。用法: !ff14channels add [頻道/頻道ID]"""
+        try:
+            target_channel = await self._resolve_channel(ctx, channel_input)
+        except Exception as e:
+            await ctx.send(f"❌ 無法解析頻道：{e}")
+            return
+        
+        channel_ids = self.channels_config.get("channel_ids", [])
+        
+        if target_channel.id in channel_ids:
+            channel_mention = target_channel.mention if hasattr(target_channel, 'mention') else f"頻道 {target_channel.id}"
+            await ctx.send(f"ℹ️ {channel_mention} 已經在推送列表中了。")
+            return
+        
+        channel_ids.append(target_channel.id)
+        self.channels_config["channel_ids"] = channel_ids
+        self._save_channels_config()
+        channel_mention = target_channel.mention if hasattr(target_channel, 'mention') else f"頻道 {target_channel.id}"
+        await ctx.send(f"✅ 已將 {channel_mention} 加入 FF14 新聞推送列表。")
+
+    @ff14channels.command(name="remove")
+    async def remove_channel(self, ctx, channel_input=None):
+        """移除推送頻道。用法: !ff14channels remove [頻道/頻道ID]"""
+        try:
+            target_channel = await self._resolve_channel(ctx, channel_input)
+        except Exception as e:
+            await ctx.send(f"❌ 無法解析頻道：{e}")
+            return
+        
+        channel_ids = self.channels_config.get("channel_ids", [])
+        
+        if target_channel.id not in channel_ids:
+            channel_mention = target_channel.mention if hasattr(target_channel, 'mention') else f"頻道 {target_channel.id}"
+            await ctx.send(f"ℹ️ {channel_mention} 不在推送列表中。")
+            return
+        
+        channel_ids.remove(target_channel.id)
+        self.channels_config["channel_ids"] = channel_ids
+        self._save_channels_config()
+        channel_mention = target_channel.mention if hasattr(target_channel, 'mention') else f"頻道 {target_channel.id}"
+        await ctx.send(f"✅ 已從 FF14 新聞推送列表中移除 {channel_mention}。")
+
+    @ff14channels.command(name="list")
+    async def list_channels(self, ctx):
+        """列出所有推送頻道"""
+        channel_ids = self.channels_config.get("channel_ids", [])
+        
+        if not channel_ids:
+            await ctx.send("📭 目前沒有配置任何 FF14 新聞推送頻道。")
+            return
+        
+        embed = discord.Embed(title="FF14 新聞推送頻道列表", color=discord.Color.blue())
+        channels = [f"<#{cid}>" for cid in channel_ids]
+        embed.description = "\n".join(channels) if channels else "無"
+        await ctx.send(embed=embed)
+
+    @ff14channels.command(name="test")
+    async def test_push(self, ctx, channel: discord.TextChannel = None):
+        """測試推送功能到指定頻道（或所有配置頻道）。用法: !ff14channels test [頻道]"""
+        test_item = {
+            'id': 'TEST',
+            'title': '🧪 FF14 新聞推送測試',
+            'url': 'https://www.ffxiv.com.tw/web/news/',
+            'date': '測試日期'
+        }
+        
+        if channel:
+            # 測試單一指定頻道
+            try:
+                target_channel = await self.bot.fetch_channel(channel.id) if hasattr(channel, 'id') else channel
+                await self.send_news_message(target_channel, test_item)
+                await ctx.send(f"✅ 測試訊息已發送到 {channel.mention}")
+            except Exception as e:
+                await ctx.send(f"❌ 測試發送失敗: {e}")
+                logger.error(f"FF14 測試推送失敗: {e}")
+        else:
+            # 測試所有配置的頻道
+            channel_ids = self.channels_config.get("channel_ids", [])
+            if not channel_ids:
+                await ctx.send("❌ 沒有配置任何推送頻道，請先使用 `!ff14channels add` 添加頻道")
+                return
+            
+            success_count = 0
+            failed_count = 0
+            for channel_id in channel_ids:
+                try:
+                    target_channel = await self.bot.fetch_channel(channel_id)
+                    await self.send_news_message(target_channel, test_item)
+                    success_count += 1
+                except Exception as e:
+                    failed_count += 1
+                    logger.error(f"FF14 測試推送失敗 (頻道 {channel_id}): {e}")
+            
+            await ctx.send(f"✅ 測試完成！成功: {success_count}，失敗: {failed_count}")
 
 async def setup(bot):
     await bot.add_cog(FF14News(bot))

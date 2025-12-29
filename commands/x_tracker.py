@@ -191,20 +191,50 @@ class XTracker(commands.Cog):
         """X (Twitter) 追蹤系統指令 (Twikit v2)"""
         await ctx.send_help(ctx.command)
 
+    async def _resolve_channel(self, ctx, channel_input):
+        """解析頻道參數，支援同伺服器頻道和跨伺服器頻道 ID"""
+        if channel_input is None:
+            # 不提供參數，使用當前頻道
+            return ctx.channel
+        
+        if isinstance(channel_input, discord.TextChannel):
+            # 提供了頻道物件（同伺服器）
+            return channel_input
+        
+        # 嘗試作為頻道 ID（跨伺服器）
+        try:
+            channel_id = int(str(channel_input))
+            channel = await self.bot.fetch_channel(channel_id)
+            return channel
+        except (ValueError, discord.NotFound, discord.Forbidden):
+            # 如果解析失敗，嘗試作為同伺服器的頻道名稱或提及
+            try:
+                converter = commands.TextChannelConverter()
+                return await converter.convert(ctx, str(channel_input))
+            except:
+                raise commands.BadArgument(f"無法解析頻道：{channel_input}")
+
     @xtrack.command(name="add")
     @commands.has_permissions(administrator=False)
-    async def add_tracker(self, ctx, username: str, channel: discord.TextChannel = None):
-        """新增追蹤用戶。用法: !xtrack add <username> [channel]"""
-        target_channel = channel or ctx.channel
+    async def add_tracker(self, ctx, username: str, channel_input=None):
+        """新增追蹤用戶。用法: !xtrack add <username> [channel/頻道ID]"""
+        try:
+            target_channel = await self._resolve_channel(ctx, channel_input)
+        except Exception as e:
+            await ctx.send(f"❌ 無法解析頻道：{e}")
+            return
+        
         username = username.replace("@", "")
         
         if username in self.config["tracking"]:
             if target_channel.id not in self.config["tracking"][username]["channel_ids"]:
                  self.config["tracking"][username]["channel_ids"].append(target_channel.id)
                  self.save_config()
-                 await ctx.send(f"✅ 已將 {target_channel.mention} 加入 **{username}** 的通知列表。")
+                 channel_mention = target_channel.mention if hasattr(target_channel, 'mention') else f"頻道 {target_channel.id}"
+                 await ctx.send(f"✅ 已將 {channel_mention} 加入 **{username}** 的通知列表。")
             else:
-                 await ctx.send(f"ℹ️ {target_channel.mention} 已經在追蹤 **{username}** 了。")
+                 channel_mention = target_channel.mention if hasattr(target_channel, 'mention') else f"頻道 {target_channel.id}"
+                 await ctx.send(f"ℹ️ {channel_mention} 已經在追蹤 **{username}** 了。")
         else:
             self.config["tracking"][username] = {
                 "channel_ids": [target_channel.id],
@@ -215,15 +245,19 @@ class XTracker(commands.Cog):
 
     @xtrack.command(name="remove")
     @commands.has_permissions(administrator=False)
-    async def remove_tracker(self, ctx, username: str, channel: discord.TextChannel = None):
-        """移除追蹤。用法: !xtrack remove <username> [channel]"""
+    async def remove_tracker(self, ctx, username: str, channel_input=None):
+        """移除追蹤。用法: !xtrack remove <username> [channel/頻道ID]"""
         username = username.replace("@", "")
         
         if username not in self.config["tracking"]:
             await ctx.send(f"❌ 找不到追蹤記錄：**{username}**")
             return
 
-        target_channel = channel or ctx.channel
+        try:
+            target_channel = await self._resolve_channel(ctx, channel_input)
+        except Exception as e:
+            await ctx.send(f"❌ 無法解析頻道：{e}")
+            return
         
         if target_channel.id in self.config["tracking"][username]["channel_ids"]:
             self.config["tracking"][username]["channel_ids"].remove(target_channel.id)
@@ -231,10 +265,12 @@ class XTracker(commands.Cog):
                 del self.config["tracking"][username]
                 await ctx.send(f"✅ 已停止追蹤 **{username}** (無剩餘訂閱頻道)。")
             else:
-                await ctx.send(f"✅ 已從 {target_channel.mention} 移除 **{username}** 的通知。")
+                channel_mention = target_channel.mention if hasattr(target_channel, 'mention') else f"頻道 {target_channel.id}"
+                await ctx.send(f"✅ 已從 {channel_mention} 移除 **{username}** 的通知。")
             self.save_config()
         else:
-            await ctx.send(f"ℹ️ {target_channel.mention} 並沒有追蹤 **{username}**。")
+            channel_mention = target_channel.mention if hasattr(target_channel, 'mention') else f"頻道 {target_channel.id}"
+            await ctx.send(f"ℹ️ {channel_mention} 並沒有追蹤 **{username}**。")
 
     @xtrack.command(name="list")
     async def list_trackers(self, ctx):
@@ -262,6 +298,50 @@ class XTracker(commands.Cog):
         await ctx.send("🔄 正在檢查更新...")
         await self.check_all_users()
         await ctx.send("✅ 檢查完成。")
+
+    @xtrack.command(name="test")
+    async def test_push(self, ctx, channel: discord.TextChannel = None):
+        """測試推送功能到指定頻道或所有追蹤頻道。用法: !xtrack test [頻道]"""
+        if channel:
+            # 測試單一指定頻道
+            try:
+                target_channel = await self.bot.fetch_channel(channel.id) if hasattr(channel, 'id') else channel
+                test_message = "🧪 **X/Twitter 推送測試**\n這是一條測試訊息，用於測試推送功能是否正常運作！"
+                await target_channel.send(test_message)
+                await ctx.send(f"✅ 測試訊息已發送到 {channel.mention}")
+            except Exception as e:
+                await ctx.send(f"❌ 測試發送失敗: {e}")
+                logger.error(f"X/Twitter 測試推送失敗: {e}")
+        else:
+            # 測試所有追蹤用戶的頻道
+            tracking_data = self.config.get("tracking", {})
+            if not tracking_data:
+                await ctx.send("❌ 沒有配置任何追蹤用戶，請先使用 `!xtrack add` 添加追蹤")
+                return
+            
+            all_channel_ids = set()
+            for username, data in tracking_data.items():
+                channel_ids = data.get("channel_ids", [])
+                all_channel_ids.update(channel_ids)
+            
+            if not all_channel_ids:
+                await ctx.send("❌ 沒有配置任何推送頻道")
+                return
+            
+            success_count = 0
+            failed_count = 0
+            test_message = "🧪 **X/Twitter 推送測試**\n這是一條測試訊息，用於測試多頻道推送功能是否正常運作！"
+            
+            for channel_id in all_channel_ids:
+                try:
+                    target_channel = await self.bot.fetch_channel(channel_id)
+                    await target_channel.send(test_message)
+                    success_count += 1
+                except Exception as e:
+                    failed_count += 1
+                    logger.error(f"X/Twitter 測試推送失敗 (頻道 {channel_id}): {e}")
+            
+            await ctx.send(f"✅ 測試完成！成功: {success_count}，失敗: {failed_count}")
 
 async def setup(bot: commands.Bot):
     await bot.add_cog(XTracker(bot))
