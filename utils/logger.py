@@ -6,7 +6,9 @@ import gzip
 import shutil
 
 # === 絕對路徑設定 ===
-log_dir = r"E:\coding\project\Python\Discord Bot\logs"
+# 獲取專案根目錄 (bot.py 所在位置)
+base_dir = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+log_dir = os.path.join(base_dir, "logs")
 os.makedirs(log_dir, exist_ok=True)
 
 log_base_filename = os.path.join(log_dir, "bot.log")

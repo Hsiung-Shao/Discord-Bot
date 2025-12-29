@@ -36,7 +36,8 @@ initial_extensions = [
     "commands.admin",
     "commands.lol",
     "commands.x_tracker",
-    "commands.ff14news"
+    "commands.ff14news",
+    "commands.feedback_server"
 ]
 
 @bot.event

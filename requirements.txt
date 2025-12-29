@@ -1,4 +1,5 @@
 aiohttp==3.12.14
+aiohttp-cors
 apscheduler
 twikit==3.11.0
 beautifulsoup4==4.13.4
