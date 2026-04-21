@@ -8,11 +8,13 @@ import asyncio
 from discord.ext import commands
 from config import BOT_TOKEN
 from config import CONTROL_THREAD_ID
+from config import GUILD_IDS
 from commands.commandspanel import ServerControlPanelView, get_combined_status_embed
 from backups.manager import BackupManager
 from backups.minecraft_backup import MinecraftBackupHandler
 from backups.seven_days_backup import SevenDaysBackupHandler
-from config import MINECRAFT_BASE_PATH, SEVENDAY_SAVE_PATH, BACKUP_ROOT
+from commands.mc_server_config import load_servers
+from config import SEVENDAY_SAVE_PATH, BACKUP_ROOT
 from utils.logger import get_logger
 from tasks.auto_backup_task import AutoBackupTask
 from tasks.log_compressor import LogCompressor
@@ -36,23 +38,39 @@ initial_extensions = [
     "commands.admin",
     "commands.lol",
     "commands.x_tracker",
-    "commands.ff14news",
-    "commands.feedback_server"
+    "commands.ff14news"
 ]
 
 @bot.event
 async def on_ready():
     logger.info(f"✅ Bot 已上線：{bot.user}")
+
+    # 同步 slash commands 到指定伺服器（即時生效）
+    for gid in GUILD_IDS:
+        guild = discord.Object(id=gid)
+        bot.tree.copy_global_to(guild=guild)
+        synced = await bot.tree.sync(guild=guild)
+        logger.info(f"✅ 已同步 {len(synced)} 個 slash commands 到 Guild {gid}")
+
     asyncio.create_task(initialize_panel(bot))
     await asyncio.sleep(5)
 
     backup_manager = BackupManager()
-    backup_manager.register_handler(
-        MinecraftBackupHandler(
-            world_path=os.path.join(MINECRAFT_BASE_PATH, "world"),
-            backup_root=BACKUP_ROOT
+
+    # 為每個啟用 auto_backup 的 Minecraft 伺服器註冊備份 handler
+    for profile in load_servers():
+        if not profile.auto_backup:
+            continue
+        backup_manager.register_handler(
+            MinecraftBackupHandler(
+                server_id=profile.id,
+                display_name=profile.name,
+                world_path=profile.world_path,
+                backup_root=BACKUP_ROOT
+            )
         )
-    )
+        logger.info(f"📦 已註冊 Minecraft 備份 handler：{profile.name}")
+
     backup_manager.register_handler(
         SevenDaysBackupHandler(
             save_path=SEVENDAY_SAVE_PATH,

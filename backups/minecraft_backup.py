@@ -8,17 +8,19 @@ from utils.logger import get_logger
 
 logger = get_logger(__name__)
 
+
 class MinecraftBackupHandler(BaseBackupHandler):
-    def __init__(self, world_path, backup_root):
-        super().__init__(name="Minecraft")
+    def __init__(self, world_path, backup_root, server_id: str = None, display_name: str = None):
+        # server_id 用於資料夾名稱避免衝突；display_name 用於 log 顯示
+        self.server_id = server_id or os.path.basename(os.path.dirname(world_path.rstrip('/\\')))
+        super().__init__(name=display_name or f"Minecraft({self.server_id})")
         self.world_path = world_path
-        self.server_folder = os.path.basename(os.path.dirname(self.world_path.rstrip('/\\')))
-        self.backup_dir = os.path.join(backup_root, self.server_folder)
+        self.backup_dir = os.path.join(backup_root, self.server_id)
         os.makedirs(self.backup_dir, exist_ok=True)
 
     async def perform_backup(self, temp_dir=None):
         timestamp = datetime.now().strftime("%Y%m%d_%H%M")
-        zip_filename = f"{self.server_folder}_world_{timestamp}.zip"
+        zip_filename = f"{self.server_id}_world_{timestamp}.zip"
 
         if not temp_dir:
             temp_dir = tempfile.mkdtemp()
@@ -30,7 +32,7 @@ class MinecraftBackupHandler(BaseBackupHandler):
             await loop.run_in_executor(None, self._zip_world, temp_zip_path)
             return temp_zip_path
         except Exception as e:
-            logger.error(f"[Minecraft] 備份失敗：{e.__class__.__name__} - {e}")
+            logger.error(f"[{self.name}] 備份失敗：{e.__class__.__name__} - {e}")
             raise
 
     def _zip_world(self, zip_path):
@@ -42,10 +44,9 @@ class MinecraftBackupHandler(BaseBackupHandler):
                     try:
                         zipf.write(full_path, arcname=rel_path)
                     except PermissionError as e:
-                        logger.warning(f"[Minecraft] 跳過被鎖定檔案：{full_path}（{e}）")
+                        logger.warning(f"[{self.name}] 跳過被鎖定檔案：{full_path}（{e}）")
                     except Exception as e:
-                        logger.warning(f"[Minecraft] 壓縮檔案失敗：{full_path}（{e}）")
-
+                        logger.warning(f"[{self.name}] 壓縮檔案失敗：{full_path}（{e}）")
 
     def get_final_path(self, zip_path):
         return os.path.join(self.backup_dir, os.path.basename(zip_path))

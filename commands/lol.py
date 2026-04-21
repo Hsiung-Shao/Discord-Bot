@@ -3,6 +3,7 @@ import random
 import json
 import os
 from discord.ext import commands
+from discord import app_commands
 from discord.ui import View, Select
 
 # 以 lol.py 的上一層當作專案根目錄
@@ -181,7 +182,7 @@ class Lol(commands.Cog):
         await interaction.response.send_message("請選擇功能：", view=view, ephemeral=False)
 
 
-    @commands.command()
+    @commands.hybrid_command()
     async def change(self, ctx, item: str):
         """
         重新分配指定隊伍的英雄
@@ -309,8 +310,9 @@ class Lol(commands.Cog):
         await interaction.response.send_message("所有數據已清除！", ephemeral=True)
 
 
-    @commands.command(name="ac")
-    async def add_challenge(self, ctx, title: str, *, description: str):
+    @commands.hybrid_command(name="ac")
+    @app_commands.describe(title="挑戰標題", description="挑戰描述")
+    async def add_challenge(self, ctx, title: str, description: str):
         """新增挑戰主題"""
         data = self.read_data(THEME_FILE)
         new_challenge = {"title": title, "description": description}
@@ -324,7 +326,7 @@ class Lol(commands.Cog):
         )
         await ctx.send(embed=embed)
 
-    @commands.command(name="dc")
+    @commands.hybrid_command(name="dc")
     async def delete_challenge(self, ctx, title: str):
         """刪除指定挑戰主題"""
         data = self.read_data(THEME_FILE)
@@ -345,7 +347,7 @@ class Lol(commands.Cog):
         )
         await ctx.send(embed=embed)
 
-    @commands.command(name="lc")
+    @commands.hybrid_command(name="lc")
     async def list_challenges(self, ctx):
         """顯示所有挑戰主題，帶分頁功能"""
         data = self.read_data(THEME_FILE)
@@ -361,7 +363,7 @@ class Lol(commands.Cog):
 
 
 
-    @commands.command(name="randomChallenge")
+    @commands.hybrid_command(name="randomchallenge")
     async def random_challenge(self, ctx):
         """隨機選取一個挑戰主題"""
         data = self.read_data(THEME_FILE)

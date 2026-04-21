@@ -57,19 +57,15 @@ TWITTER_PASSWORD = os.getenv("TWITTER_PASSWORD")
 FF14_NEWS_THREAD_ID = int(os.getenv("FF14_NEWS_THREAD_ID", 0))
 FF14_DATA_FILE = os.getenv("FF14_DATA_FILE", "data/ff14news.json")
 
-# Feedback Server & Cloudflare Tunnel
-FEEDBACK_CHANNEL_ID = int(os.getenv("FEEDBACK_CHANNEL_ID", 0))
-FEEDBACK_PORT = int(os.getenv("FEEDBACK_PORT", 8080))
-FEEDBACK_DATA_FILE = os.getenv("FEEDBACK_DATA_FILE", "data/feedbacks.json")
+# Guild IDs (用於即時同步 slash commands，多個以逗號分隔)
+def _parse_guild_ids(raw: str) -> list[int]:
+    result = []
+    for gid in raw.split(","):
+        gid = gid.strip()
+        if gid.isdigit():
+            result.append(int(gid))
+    return result
 
-# 取得專案根目錄 (config.py所在目錄)
-BASE_DIR = os.path.dirname(os.path.abspath(__file__))
+GUILD_IDS = _parse_guild_ids(os.getenv("GUILD_IDS", ""))
 
-# Cloudflared 設定 (強制使用絕對路徑)
-_cloudflared_default = os.path.join(BASE_DIR, "cloudflared.exe")
-_config_yml_default = os.path.join(BASE_DIR, "config.yml")
-
-CLOUDFLARED_PATH = os.getenv("CLOUDFLARED_PATH", _cloudflared_default) 
-# 注意：不加引號，由 subprocess 處理參數
-CLOUDFLARED_ARGS = os.getenv("CLOUDFLARED_ARGS", f'tunnel --config {_config_yml_default} run')
 

@@ -1,7 +1,0 @@
-tunnel: f1d18bd7-387f-4fb9-9c33-dc1c859a8a0f
-credentials-file: C:\Users\jerry\.cloudflared\f1d18bd7-387f-4fb9-9c33-dc1c859a8a0f.json
-
-ingress:
-  - hostname: api.multistreaming.org  # 👈 換成你在第一步設定的完整網址
-    service: http://localhost:8080
-  - service: http_status:404

@@ -2,16 +2,49 @@ import discord
 from discord.ext import commands
 import asyncio
 import psutil
-from discord import Embed, Color
 from mcstatus import JavaServer
 from datetime import datetime
 from config import CONTROL_THREAD_ID
 from pytz import timezone
+from commands.mc_server_config import load_servers
+
+
+class MinecraftServerSelect(discord.ui.Select):
+    def __init__(self, servers, default_id=None):
+        options = []
+        for s in servers:
+            options.append(
+                discord.SelectOption(
+                    label=s.name,
+                    value=s.id,
+                    description=f"{s.host}:{s.game_port}",
+                    default=(s.id == default_id)
+                )
+            )
+        super().__init__(
+            placeholder="選擇要操作的 Minecraft 伺服器...",
+            min_values=1,
+            max_values=1,
+            options=options,
+            custom_id="mc_server_select"
+        )
+
+    async def callback(self, interaction: discord.Interaction):
+        view: "ServerControlPanelView" = self.view
+        view.selected_mc_server_id = self.values[0]
+        for opt in self.options:
+            opt.default = (opt.value == self.values[0])
+        await interaction.response.edit_message(view=view)
+
 
 class ServerControlPanelView(discord.ui.View):
     def __init__(self, bot):
         super().__init__(timeout=None)
         self.bot = bot
+        servers = load_servers()
+        self.selected_mc_server_id = servers[0].id if servers else None
+        if len(servers) > 1:
+            self.add_item(MinecraftServerSelect(servers, default_id=self.selected_mc_server_id))
 
     async def send_temporary_message(self, thread, content, delay=10):
         msg = await thread.send(content)
@@ -27,7 +60,6 @@ class ServerControlPanelView(discord.ui.View):
             embed = await get_combined_status_embed(self.bot)
             try:
                 await interaction.message.edit(embed=embed)
-                print("✅ 延遲狀態面板更新成功")
             except Exception as e:
                 print(f"❌ 更新狀態 Embed 失敗：{e}")
         asyncio.create_task(delayed_status_update())
@@ -37,30 +69,34 @@ class ServerControlPanelView(discord.ui.View):
         await interaction.response.defer()
         ctx = await self.bot.get_context(interaction.message)
         cog = self.bot.get_cog("MinecraftServerControl")
-        if cog:
-            result = await cog.start_server(ctx)
-            if result is True:
-                await self.send_temporary_message(interaction.channel, "✅ Minecraft 啟動成功")
-                await self.schedule_status_update(interaction)
-            elif result is False:
-                await self.send_temporary_message(interaction.channel, "⚠️ Minecraft 已在執行中")
-            else:
-                await self.send_temporary_message(interaction.channel, "❌ Minecraft 啟動失敗")
+        if not cog:
+            await self.send_temporary_message(interaction.channel, "❌ Minecraft Cog 未載入")
+            return
+        result = await cog.start_server(ctx, self.selected_mc_server_id)
+        if result is True:
+            await self.send_temporary_message(interaction.channel, "✅ Minecraft 啟動成功")
+            await self.schedule_status_update(interaction)
+        elif result is False:
+            await self.send_temporary_message(interaction.channel, "⚠️ Minecraft 已在執行中")
+        else:
+            await self.send_temporary_message(interaction.channel, "❌ Minecraft 啟動失敗")
 
     @discord.ui.button(label="關閉 Minecraft", style=discord.ButtonStyle.red, custom_id="stopmc")
     async def stop_mc(self, interaction: discord.Interaction, button: discord.ui.Button):
         await interaction.response.defer()
         ctx = await self.bot.get_context(interaction.message)
         cog = self.bot.get_cog("MinecraftServerControl")
-        if cog:
-            result = await cog.stop_server(ctx)
-            if result is True:
-                await self.send_temporary_message(interaction.channel, "🛑 Minecraft 關閉成功")
-                await self.schedule_status_update(interaction)
-            elif result is False:
-                await self.send_temporary_message(interaction.channel, "⚠️ Minecraft 尚未啟動")
-            else:
-                await self.send_temporary_message(interaction.channel, "❌ Minecraft 關閉失敗")
+        if not cog:
+            await self.send_temporary_message(interaction.channel, "❌ Minecraft Cog 未載入")
+            return
+        result = await cog.stop_server(ctx, self.selected_mc_server_id)
+        if result is True:
+            await self.send_temporary_message(interaction.channel, "🛑 Minecraft 關閉成功")
+            await self.schedule_status_update(interaction)
+        elif result is False:
+            await self.send_temporary_message(interaction.channel, "⚠️ Minecraft 尚未啟動")
+        else:
+            await self.send_temporary_message(interaction.channel, "❌ Minecraft 關閉失敗")
 
     @discord.ui.button(label="啟動 7 Days", style=discord.ButtonStyle.green, custom_id="start7d")
     async def start_7d(self, interaction: discord.Interaction, button: discord.ui.Button):
@@ -114,6 +150,7 @@ async def safe_process_iter():
     loop = asyncio.get_running_loop()
     return await loop.run_in_executor(None, lambda: list(psutil.process_iter(['name', 'cmdline'])))
 
+
 async def get_combined_status_embed(bot) -> discord.Embed:
     embed = discord.Embed(
         title="📊 伺服器狀態總覽",
@@ -121,32 +158,54 @@ async def get_combined_status_embed(bot) -> discord.Embed:
         color=discord.Color.dark_teal()
     )
 
-    # ✅ Minecraft 狀態
-    try:
-        mc = JavaServer("127.0.0.1", 25565)
-        status = await mc.async_status()
+    # Minecraft 多伺服器狀態
+    mc_cog = bot.get_cog("MinecraftServerControl")
+    servers = mc_cog.list_servers() if mc_cog else load_servers()
 
-        mc_cog = bot.get_cog("MinecraftServerControl")
-        last_start = getattr(mc_cog, "last_started", None)
-        last_backup = getattr(mc_cog, "last_backup", None)
+    if not servers:
+        embed.add_field(name="⚠️ Minecraft", value="尚未設定任何伺服器", inline=False)
+    else:
+        for profile in servers:
+            # 先檢查這個 profile 對應的進程是否真的在跑（避免共用 port 導致誤判）
+            is_running = mc_cog.is_process_running(profile) if mc_cog else False
 
-        mc_info = f"狀態：🟢 在線中\n玩家：{status.players.online} / {status.players.max}\nMOTD：{status.description}"
-        if last_start:
-            mc_info += f"\n啟動時間：{last_start.strftime('%Y-%m-%d %H:%M:%S')}"
-        if last_backup:
-            mc_info += f"\n最後備份：{last_backup.strftime('%Y-%m-%d %H:%M:%S')}"
+            if not is_running:
+                embed.add_field(
+                    name=f"🔴 {profile.name}",
+                    value=f"伺服器未執行。\n位址：`{profile.host}:{profile.game_port}`",
+                    inline=False
+                )
+                continue
 
-        embed.add_field(name="🟢 Minecraft", value=mc_info, inline=False)
+            last_start = mc_cog.last_started.get(profile.id) if mc_cog else None
+            last_backup = mc_cog.last_backup.get(profile.id) if mc_cog else None
 
-    except Exception:
-        embed.add_field(name="🔴 Minecraft", value="伺服器未執行或無法連線。", inline=False)
+            try:
+                mc = JavaServer(profile.host, profile.game_port)
+                status = await mc.async_status()
+                info = (
+                    f"狀態：🟢 在線中\n"
+                    f"玩家：{status.players.online} / {status.players.max}\n"
+                    f"位址：`{profile.host}:{profile.game_port}`"
+                )
+            except Exception:
+                # 進程在跑但查詢不到狀態（可能還在載入中）
+                info = (
+                    f"狀態：🟡 載入中或 RCON 未就緒\n"
+                    f"位址：`{profile.host}:{profile.game_port}`"
+                )
 
-    # ✅ 7 Days to Die 狀態
+            if last_start:
+                info += f"\n啟動時間：{last_start.strftime('%Y-%m-%d %H:%M:%S')}"
+            if last_backup:
+                info += f"\n最後備份：{last_backup.strftime('%Y-%m-%d %H:%M:%S')}"
+            embed.add_field(name=f"🟢 {profile.name}", value=info, inline=False)
+
+    # 7 Days to Die
     try:
         seven_cog = bot.get_cog("SevenDayServerControl")
         last_start = getattr(seven_cog, "last_started", None)
         last_backup = getattr(seven_cog, "last_backup", None)
-
 
         running = False
         processes = await safe_process_iter()
@@ -171,7 +230,7 @@ async def get_combined_status_embed(bot) -> discord.Embed:
     except Exception as e:
         embed.add_field(name="⚠️ 7 Days 狀態錯誤", value=str(e), inline=False)
 
-    # ✅ 額外資訊
+    # 額外資訊
     embed.add_field(
         name="🌐 伺服器 IP",
         value="`26.82.236.63`  |  `125.228.138.70`",
@@ -183,13 +242,12 @@ async def get_combined_status_embed(bot) -> discord.Embed:
         inline=False
     )
 
-    # ✅ 最後更新時間
     tz = timezone("Asia/Taipei")
     now = datetime.now(tz).strftime("%Y-%m-%d %H:%M:%S")
     embed.set_footer(text=f"🕒 最後更新時間：{now}")
 
     return embed
 
-# 🔧 註冊 Cog
+
 async def setup(bot):
     await bot.add_cog(CommandPanel(bot))

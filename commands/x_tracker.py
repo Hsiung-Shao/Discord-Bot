@@ -186,7 +186,7 @@ class XTracker(commands.Cog):
                     os.remove(self.cookies_file)
                 self.is_logged_in = False
 
-    @commands.group(name="xtrack", invoke_without_command=True)
+    @commands.hybrid_group(name="xtrack", invoke_without_command=True, fallback="help")
     async def xtrack(self, ctx):
         """X (Twitter) 追蹤系統指令 (Twikit v2)"""
         await ctx.send_help(ctx.command)
@@ -295,6 +295,7 @@ class XTracker(commands.Cog):
     @commands.has_permissions(administrator=True)
     async def force_check(self, ctx):
         """強制立即檢查更新"""
+        await ctx.defer()
         await ctx.send("🔄 正在檢查更新...")
         await self.check_all_users()
         await ctx.send("✅ 檢查完成。")
@@ -302,6 +303,7 @@ class XTracker(commands.Cog):
     @xtrack.command(name="test")
     async def test_push(self, ctx, channel: discord.TextChannel = None):
         """測試推送功能到指定頻道或所有追蹤頻道。用法: !xtrack test [頻道]"""
+        await ctx.defer()
         if channel:
             # 測試單一指定頻道
             try:

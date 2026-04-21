@@ -14,11 +14,11 @@ class MusicGameLauncher(commands.Cog):
     def __init__(self, bot):
         self.bot = bot
 
-    @commands.command(name="musicgame")
+    @commands.hybrid_command(name="musicgame")
     async def launch_music_game(self, ctx):
         await ctx.send("🎶 請選擇遊戲模式：", view=GameModeSelectorView(self.bot, ctx))
 
-    @commands.command(name="transferhost")
+    @commands.hybrid_command(name="transferhost")
     async def transfer_host(self, ctx, member: discord.Member):
         session = active_sessions.get(ctx.channel.id)
         if not session:
