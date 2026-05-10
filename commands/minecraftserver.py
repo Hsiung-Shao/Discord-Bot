@@ -9,19 +9,24 @@ from discord import app_commands
 from discord.ext import commands
 from mcrcon import MCRcon
 from mcstatus import JavaServer
-from utils.logger import get_logger
+from utils.logger import clear_channel_log, get_logger
 from commands.mc_server_config import MinecraftServerProfile, load_servers, get_server
 
-logger = get_logger(__name__)
+logger = get_logger(__name__, channel="minecraft")
 
 
 class MinecraftServerControl(commands.Cog):
     def __init__(self, bot):
         self.bot = bot
-        self.servers: dict[str, MinecraftServerProfile] = {s.id: s for s in load_servers()}
+        self.servers: dict[str, MinecraftServerProfile] = {}
         self.last_started: dict[str, datetime] = {}
         self.last_backup: dict[str, datetime] = {}
         self.delete_delay = 10
+        self.reload_servers()
+
+    def reload_servers(self) -> None:
+        """重新讀取 data/minecraft_servers.json,可在動態新增/移除/啟用後呼叫"""
+        self.servers = {s.id: s for s in load_servers()}
         logger.info(f"📋 已載入 {len(self.servers)} 個 Minecraft 伺服器：{list(self.servers.keys())}")
 
     def list_servers(self) -> list[MinecraftServerProfile]:
@@ -138,6 +143,10 @@ class MinecraftServerControl(commands.Cog):
             logger.warning(f"⚠️ [{profile.id}] 已在執行中")
             await self.send_msg(ctx, f"⚠️ {profile.name} 已在執行中")
             return False
+
+        # 每次啟動清空 minecraft.log,讓本次運行的紀錄純淨易讀
+        clear_channel_log("minecraft")
+        logger.info(f"🆕 [{profile.id}] 啟動流程開始,minecraft.log 已重置")
 
         try:
             proc = subprocess.Popen(
