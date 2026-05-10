@@ -5,7 +5,7 @@ import shutil
 from datetime import datetime, timedelta
 from utils.logger import get_logger
 
-logger = get_logger(__name__)
+logger = get_logger(__name__, channel="backup")
 
 class AutoBackupTask:
     def __init__(self, bot, interval_minutes=60, retention_hours=36):

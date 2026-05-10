@@ -6,7 +6,7 @@ from datetime import datetime
 from backups.base_handler import BaseBackupHandler
 from utils.logger import get_logger
 
-logger = get_logger(__name__)
+logger = get_logger(__name__, channel="backup")
 
 
 class MinecraftBackupHandler(BaseBackupHandler):

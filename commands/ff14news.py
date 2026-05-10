@@ -11,7 +11,7 @@ from apscheduler.schedulers.asyncio import AsyncIOScheduler
 from apscheduler.triggers.interval import IntervalTrigger
 from utils.logger import get_logger
 from urllib.parse import urljoin
-logger = get_logger("FF14News")
+logger = get_logger("FF14News", channel="ff14news")
 
 FF14_CHANNELS_FILE = "data/ff14news_channels.json"
 

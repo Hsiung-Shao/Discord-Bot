@@ -5,10 +5,10 @@ import asyncio
 from datetime import datetime
 import telnetlib
 from discord.ext import commands
-from utils.logger import get_logger
+from utils.logger import clear_channel_log, get_logger
 from config import SEVENDAY_DIR, SEVENDAY_EXE, SEVENDAY_KEYWORD, SEVENDAY_TELNET_PORT, SEVENDAY_TELNET_PASSWORD
 
-logger = get_logger(__name__)
+logger = get_logger(__name__, channel="sevenday")
 
 class SevenDayServerControl(commands.Cog):
     def __init__(self, bot):
@@ -35,6 +35,9 @@ class SevenDayServerControl(commands.Cog):
         if self.is_process_running():
             logger.warning("⚠️ 7 Days 已在執行中")
             return False
+        # 每次啟動清空 sevenday.log,讓本次運行的紀錄純淨
+        clear_channel_log("sevenday")
+        logger.info("🆕 7 Days 啟動流程開始,sevenday.log 已重置")
         try:
             subprocess.Popen(
                 os.path.join(self.base_path, self.exe_file),

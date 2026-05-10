@@ -11,7 +11,7 @@ from apscheduler.triggers.interval import IntervalTrigger
 from apscheduler.triggers.cron import CronTrigger  # 新增：每週提醒使用
 from utils.logger import get_logger
 
-logger = get_logger("BDNews")
+logger = get_logger("BDNews", channel="bdnews")
 DATA_FILE = BDNEWS_DATA_FILE
 BDNEWS_CHANNELS_FILE = "data/bdnews_channels.json"
 
