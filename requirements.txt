@@ -1,7 +1,7 @@
 aiohttp==3.12.14
 aiohttp-cors
 apscheduler
-twikit==3.11.0
+twikit==2.3.3
 beautifulsoup4==4.13.4
 discord.py==2.5.2
 mcrcon==0.7.0

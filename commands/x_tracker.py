@@ -7,7 +7,109 @@ from twikit import Client
 from config import TWITTER_USERNAME, TWITTER_EMAIL, TWITTER_PASSWORD
 from utils.logger import get_logger
 
-logger = get_logger("XTracker")
+logger = get_logger("XTracker", channel="x_tracker")
+
+
+def _patch_twikit_client_transaction():
+    # X 在 2026-03-18 改了 ondemand.s 檔案格式,twikit 2.3.3 的
+    # ClientTransaction.get_indices() 無法再萃取 KEY_BYTE indices,
+    # 之後每次 API 呼叫都會 raise "'ClientTransaction' object has no
+    # attribute 'key'"。在 upstream 修好前(d60/twikit#408、#409、
+    # PR #407 尚未合併)以此 patch 跳過 transaction id 計算。
+    try:
+        from twikit.x_client_transaction.transaction import ClientTransaction
+    except ImportError:
+        logger.warning("twikit ClientTransaction patch skipped: module not found")
+        return
+
+    if getattr(ClientTransaction, "_x_tracker_patched", False):
+        return
+
+    original_init = ClientTransaction.init
+
+    async def safe_init(self, session, headers):
+        try:
+            await original_init(self, session, headers)
+        except Exception as e:
+            logger.warning(f"ClientTransaction.init fallback (twikit broken): {e}")
+            if not hasattr(self, "key"):
+                self.key = ""
+            if not hasattr(self, "key_bytes"):
+                self.key_bytes = []
+            if not hasattr(self, "animation_key"):
+                self.animation_key = ""
+
+    def safe_generate_transaction_id(self, method, path, response=None,
+                                     key=None, animation_key=None, time_now=None):
+        return ""
+
+    ClientTransaction.init = safe_init
+    ClientTransaction.generate_transaction_id = safe_generate_transaction_id
+    ClientTransaction._x_tracker_patched = True
+    logger.info("twikit ClientTransaction patched (workaround for X 2026-03-18 breakage)")
+
+
+def _patch_twikit_user():
+    # X 持續改 user legacy schema,缺欄位時 twikit 2.3.3 的 User.__init__
+    # 直接拋 KeyError(例如 'pinned_tweet_ids_str'、'urls')。把 __init__
+    # 換成全 .get() 版本,缺欄位回 None / 預設值,不影響呼叫端只用到 id 的場景。
+    try:
+        from twikit import user as user_module
+    except ImportError:
+        logger.warning("twikit user patch skipped: module not found")
+        return
+
+    if getattr(user_module.User, "_x_tracker_patched", False):
+        return
+
+    def safe_user_init(self, client, data):
+        self._client = client
+        legacy = (data or {}).get("legacy") or {}
+        entities = legacy.get("entities") or {}
+        description_entities = entities.get("description") or {}
+        url_entities = entities.get("url") or {}
+
+        self.id = (data or {}).get("rest_id")
+        self.created_at = legacy.get("created_at")
+        self.name = legacy.get("name", "")
+        self.screen_name = legacy.get("screen_name", "")
+        self.profile_image_url = legacy.get("profile_image_url_https")
+        self.profile_banner_url = legacy.get("profile_banner_url")
+        self.url = legacy.get("url")
+        self.location = legacy.get("location", "")
+        self.description = legacy.get("description", "")
+        self.description_urls = description_entities.get("urls") or []
+        self.urls = url_entities.get("urls")
+        self.pinned_tweet_ids = legacy.get("pinned_tweet_ids_str") or []
+        self.is_blue_verified = (data or {}).get("is_blue_verified", False)
+        self.verified = legacy.get("verified", False)
+        self.possibly_sensitive = legacy.get("possibly_sensitive", False)
+        self.can_dm = legacy.get("can_dm", False)
+        self.can_media_tag = legacy.get("can_media_tag", False)
+        self.want_retweets = legacy.get("want_retweets", False)
+        self.default_profile = legacy.get("default_profile", False)
+        self.default_profile_image = legacy.get("default_profile_image", False)
+        self.has_custom_timelines = legacy.get("has_custom_timelines", False)
+        self.followers_count = legacy.get("followers_count", 0)
+        self.fast_followers_count = legacy.get("fast_followers_count", 0)
+        self.normal_followers_count = legacy.get("normal_followers_count", 0)
+        self.following_count = legacy.get("friends_count", 0)
+        self.favourites_count = legacy.get("favourites_count", 0)
+        self.listed_count = legacy.get("listed_count", 0)
+        self.media_count = legacy.get("media_count", 0)
+        self.statuses_count = legacy.get("statuses_count", 0)
+        self.is_translator = legacy.get("is_translator", False)
+        self.translator_type = legacy.get("translator_type", "none")
+        self.withheld_in_countries = legacy.get("withheld_in_countries", [])
+        self.protected = legacy.get("protected", False)
+
+    user_module.User.__init__ = safe_user_init
+    user_module.User._x_tracker_patched = True
+    logger.info("twikit User.__init__ patched (fault-tolerant against X schema drift)")
+
+
+_patch_twikit_client_transaction()
+_patch_twikit_user()
 
 class XTracker(commands.Cog):
     def __init__(self, bot: commands.Bot):
