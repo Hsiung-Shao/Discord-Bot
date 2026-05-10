@@ -182,11 +182,10 @@ class Lol(commands.Cog):
         await interaction.response.send_message("請選擇功能：", view=view, ephemeral=False)
 
 
-    @commands.hybrid_command()
+    @commands.hybrid_command(name="change")
+    @app_commands.describe(item="隊伍編號(輸入 1 或 2),會將該隊所有人的英雄重新隨機分配")
     async def change(self, ctx, item: str):
-        """
-        重新分配指定隊伍的英雄
-        """
+        """重抽指定隊伍的所有英雄(主持人用,需先初始化並隨機分配過隊伍)"""
         # 讀取現有數據
         user_data = self.read_data(DATA_FILE)
         if not user_data:
@@ -311,9 +310,9 @@ class Lol(commands.Cog):
 
 
     @commands.hybrid_command(name="ac")
-    @app_commands.describe(title="挑戰標題", description="挑戰描述")
+    @app_commands.describe(title="挑戰標題(範例:空中作戰)", description="挑戰規則說明")
     async def add_challenge(self, ctx, title: str, description: str):
-        """新增挑戰主題"""
+        """新增一個挑戰主題到挑戰庫(供 /lc /randomchallenge 使用)"""
         data = self.read_data(THEME_FILE)
         new_challenge = {"title": title, "description": description}
         data["challenges"].append(new_challenge)
@@ -327,8 +326,9 @@ class Lol(commands.Cog):
         await ctx.send(embed=embed)
 
     @commands.hybrid_command(name="dc")
+    @app_commands.describe(title="要刪除的挑戰標題(必須與 /lc 顯示的標題完全相同)")
     async def delete_challenge(self, ctx, title: str):
-        """刪除指定挑戰主題"""
+        """從挑戰庫移除指定的挑戰主題"""
         data = self.read_data(THEME_FILE)
         challenges = data["challenges"]
         filtered = [c for c in challenges if c["title"] != title]
@@ -349,7 +349,7 @@ class Lol(commands.Cog):
 
     @commands.hybrid_command(name="lc")
     async def list_challenges(self, ctx):
-        """顯示所有挑戰主題，帶分頁功能"""
+        """列出所有挑戰主題,每頁 15 項可翻頁"""
         data = self.read_data(THEME_FILE)
         challenges = data.get("challenges", [])
 
@@ -365,7 +365,7 @@ class Lol(commands.Cog):
 
     @commands.hybrid_command(name="randomchallenge")
     async def random_challenge(self, ctx):
-        """隨機選取一個挑戰主題"""
+        """從挑戰庫隨機抽一個主題出來,當作本場比賽的限定條件"""
         data = self.read_data(THEME_FILE)
         challenges = data["challenges"]
 
