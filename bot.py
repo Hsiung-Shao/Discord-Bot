@@ -39,6 +39,7 @@ initial_extensions = [
     "commands.x_tracker",
     "commands.ff14news",
     "commands.server_admin",
+    "commands.daily_news",
 ]
 
 @bot.event
