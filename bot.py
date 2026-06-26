@@ -33,6 +33,7 @@ initial_extensions = [
     "commands.bdnews",
     "commands.minecraftserver",
     "commands.sevendayserver",
+    "commands.notd_server",
     "commands.commandspanel",
     "commands.admin",
     "commands.lol",
@@ -40,6 +41,7 @@ initial_extensions = [
     "commands.ff14news",
     "commands.server_admin",
     "commands.daily_news",
+    "commands.translator",
 ]
 
 @bot.event
@@ -126,6 +128,30 @@ async def main():
                 logger.info(f"✅ 成功載入模組：{ext}")
             except Exception as e:
                 logger.info(f"❌ 載入模組失敗：{ext}，錯誤：{e}")
+
+        # ── 載入被 gitignore 的私密 extension 清單(若存在) ──
+        # 清單檔每行一個 extension 模組路徑(如 commands.feedback_tracker)。
+        # 此段通用程式碼不含任何私密名稱可進版控;清單檔與其列出的 cog 皆已 gitignore。
+        private_ext_file = os.path.join(
+            os.path.dirname(os.path.abspath(__file__)), "commands", "_private_ext.txt"
+        )
+        if os.path.exists(private_ext_file):
+            try:
+                with open(private_ext_file, "r", encoding="utf-8") as f:
+                    private_exts = [
+                        ln.strip() for ln in f
+                        if ln.strip() and not ln.strip().startswith("#")
+                    ]
+            except Exception as e:
+                private_exts = []
+                logger.info(f"❌ 讀取私密 extension 清單失敗：{e}")
+            for ext in private_exts:
+                try:
+                    await bot.load_extension(ext)
+                    logger.info(f"✅ 成功載入私密模組：{ext}")
+                except Exception as e:
+                    logger.info(f"❌ 載入私密模組失敗：{ext}，錯誤：{e}")
+
         await bot.start(BOT_TOKEN)
 
 if __name__ == "__main__":
