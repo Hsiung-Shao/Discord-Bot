@@ -66,6 +66,12 @@ DAILY_NEWS_AI_CHANNEL_ID     = int(os.getenv("DAILY_NEWS_AI_CHANNEL_ID", 0))
 DAILY_NEWS_GITHUB_CHANNEL_ID = int(os.getenv("DAILY_NEWS_GITHUB_CHANNEL_ID", 0))
 DAILY_NEWS_STOCK_CHANNEL_ID  = int(os.getenv("DAILY_NEWS_STOCK_CHANNEL_ID", 0))
 
+# NLLB 翻譯
+NLLB_MODEL_NAME = os.getenv("NLLB_MODEL_NAME", "facebook/nllb-200-distilled-1.3B")
+NLLB_DEVICE = os.getenv("NLLB_DEVICE", "auto")          # auto / cuda / cpu
+TRANSLATE_DEFAULT_TARGET = os.getenv("TRANSLATE_DEFAULT_TARGET", "zho_Hant")
+TRANSLATE_CHANNELS_FILE = os.getenv("TRANSLATE_CHANNELS_FILE", "data/translate_channels.json")
+
 # Guild IDs (用於即時同步 slash commands，多個以逗號分隔)
 def _parse_guild_ids(raw: str) -> list[int]:
     result = []

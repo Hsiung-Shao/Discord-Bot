@@ -11,3 +11,11 @@ psutil==7.0.0
 python-dotenv==1.1.1
 pytz==2025.2
 requests==2.32.4
+
+# NLLB-200 翻譯功能
+# 注意:torch 需用 CUDA 版 wheel,請另外手動安裝,勿讓本檔把它降級成 CPU 版:
+#   pip install torch --index-url https://download.pytorch.org/whl/cu128
+transformers==4.57.0
+sentencepiece==0.2.1
+accelerate==1.12.0
+langdetect==1.0.9
