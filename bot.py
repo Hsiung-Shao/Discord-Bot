@@ -43,6 +43,7 @@ initial_extensions = [
     "commands.daily_news",
     "commands.translator",
     "commands.release_notify",
+    "commands.reaction_roles",
 ]
 
 @bot.event

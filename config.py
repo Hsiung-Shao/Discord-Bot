@@ -78,6 +78,9 @@ RELEASE_NOTIFY_FILE = os.getenv("RELEASE_NOTIFY_FILE", "data/release_notify.json
 GITHUB_TOKEN = os.getenv("GITHUB_TOKEN", "")
 RELEASE_CHECK_INTERVAL_MINUTES = int(os.getenv("RELEASE_CHECK_INTERVAL_MINUTES", "30"))
 
+# 表情回應領取身分組 (面板與 emoji→身分組對照由 /rr 指令管理,按 guild 分層存檔)
+REACTION_ROLES_FILE = os.getenv("REACTION_ROLES_FILE", "data/reaction_roles.json")
+
 # Guild IDs (用於即時同步 slash commands，多個以逗號分隔)
 def _parse_guild_ids(raw: str) -> list[int]:
     result = []
