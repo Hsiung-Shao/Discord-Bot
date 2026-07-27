@@ -15,13 +15,6 @@ logger = get_logger("BDNews", channel="bdnews")
 DATA_FILE = BDNEWS_DATA_FILE
 BDNEWS_CHANNELS_FILE = "data/bdnews_channels.json"
 
-lang_map = {
-    'en-us': 'en',
-    'zh-tw': 'tw',
-    'zh-cn': 'cn',
-    'ja-jp': 'jp',
-    'ko-kr': 'kr',
-}
 current_lang = 'zh-tw'
 
 class Bdust(commands.Cog):
@@ -150,47 +143,65 @@ class Bdust(commands.Cog):
             await ctx.send(f"✅ 測試完成！成功: {success_count}，失敗: {failed_count}")
 
     async def _fetch_news_data(self):
-        lang_code = lang_map[current_lang]
-        url = f"https://www.browndust2.com/api/newsData_{lang_code}.json"
+        list_url = f"https://webapi.browndust2.com/api/notices?locale={current_lang}&page=0&limit=20"
         async with aiohttp.ClientSession() as session:
-            async with session.get(url) as response:
-                if response.status == 200:
-                    data = await response.json()
-                    news_items = data.get('data', [])
-                    filtered_news = [
-                        item for item in news_items
-                        if item['attributes']['tag'] in ['dev_note', 'maintenance']
-                    ]
-
-                    if os.path.exists(DATA_FILE):
-                        with open(DATA_FILE, 'r', encoding='utf-8') as f:
-                            existing_news = json.load(f)
-                    else:
-                        existing_news = []
-
-                    existing_ids = {news['id'] for news in existing_news}
-                    new_news = [item for item in filtered_news if item['id'] not in existing_ids]
-
-                    if new_news:
-                        updated_news = existing_news + new_news
-                        with open(DATA_FILE, 'w', encoding='utf-8') as f:
-                            json.dump(updated_news, f, ensure_ascii=False, indent=4)
-
-                        for news_item in new_news:
-                            await self.process_latest_news(news_item)
-                    else:
-                        logger.info("沒有新的符合條件的新聞需要處理。")
-                else:
+            async with session.get(list_url) as response:
+                if response.status != 200:
                     logger.warning(f"BD2 API 呼叫失敗：HTTP {response.status}")
+                    return
+                data = await response.json()
+
+            news_items = data.get('items', [])
+            filtered_news = [
+                item for item in news_items
+                if item.get('category') in ['inspection', 'update']
+            ]
+
+            if os.path.exists(DATA_FILE):
+                with open(DATA_FILE, 'r', encoding='utf-8') as f:
+                    existing_news = json.load(f)
+            else:
+                existing_news = []
+
+            existing_ids = {news['id'] for news in existing_news}
+            new_news = [item for item in filtered_news if item['id'] not in existing_ids]
+
+            if not new_news:
+                logger.info("沒有新的符合條件的新聞需要處理。")
+                return
+
+            # 由舊到新推送，維持時間順序
+            new_news.sort(key=lambda item: item.get('publishedAt') or '')
+
+            processed = []
+            for item in new_news:
+                detail_url = f"https://webapi.browndust2.com/api/notices/{item['id']}?locale={current_lang}"
+                async with session.get(detail_url) as detail_response:
+                    if detail_response.status != 200:
+                        # 不記入 DATA_FILE，下一輪排程會重試
+                        logger.warning(f"BD2 公告詳情抓取失敗：HTTP {detail_response.status}（id={item['id']}）")
+                        continue
+                    detail = await detail_response.json()
+
+                await self.process_latest_news(detail)
+                processed.append({
+                    'id': detail['id'],
+                    'subject': detail.get('subject'),
+                    'category': detail.get('category'),
+                    'publishedAt': detail.get('publishedAt'),
+                })
+
+            if processed:
+                with open(DATA_FILE, 'w', encoding='utf-8') as f:
+                    json.dump(existing_news + processed, f, ensure_ascii=False, indent=4)
 
     async def process_latest_news(self, news_item):
-        attributes = news_item['attributes']
-        subject = attributes['subject']
-        tag = attributes['tag']
-        published_at = attributes['publishedAt']
-        logger.info(f"最新新聞：{subject} [{tag}] 發布於 {published_at}")
+        subject = news_item.get('subject')
+        category = news_item.get('category')
+        published_at = news_item.get('publishedAt')
+        logger.info(f"最新新聞：{subject} [{category}] 發布於 {published_at}")
 
-        content = attributes.get('NewContent', '無內容')
+        content = news_item.get('contentHtml') or '無內容'
         await self.notify_news(content)
 
     def clean_html_and_extract_images(self, raw_html):
