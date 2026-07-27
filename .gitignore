@@ -21,3 +21,5 @@ data/
 # 私密 cog 與其載入清單(內含 Supabase 連線邏輯,不進版控)
 commands/feedback_tracker.py
 commands/_private_ext.txt
+commands/vtuber_sync.py
+core/vtuber_sync.py
