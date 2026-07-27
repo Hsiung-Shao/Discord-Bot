@@ -38,6 +38,7 @@ initial_extensions = [
     "commands.lol",
     "commands.x_tracker",
     "commands.ff14news",
+    "commands.wuwanews",
     "commands.server_admin",
     "commands.daily_news",
     "commands.translator",

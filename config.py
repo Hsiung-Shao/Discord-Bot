@@ -57,6 +57,9 @@ TWITTER_PASSWORD = os.getenv("TWITTER_PASSWORD")
 FF14_NEWS_THREAD_ID = int(os.getenv("FF14_NEWS_THREAD_ID", 0))
 FF14_DATA_FILE = os.getenv("FF14_DATA_FILE", "data/ff14news.json")
 
+# 鳴潮 (Wuthering Waves) 公告推送去重檔
+WUWA_DATA_FILE = os.getenv("WUWA_DATA_FILE", "data/wuwanews.json")
+
 # 每日新聞推送 (由 Claude 排程任務寫入 data/daily_news.json,bot 自動推送)
 DAILY_NEWS_TECH_CHANNEL_ID   = int(os.getenv("DAILY_NEWS_TECH_CHANNEL_ID", 0))
 DAILY_NEWS_AI_CHANNEL_ID     = int(os.getenv("DAILY_NEWS_AI_CHANNEL_ID", 0))
