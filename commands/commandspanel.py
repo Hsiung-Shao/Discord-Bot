@@ -98,35 +98,71 @@ class ServerControlPanelView(discord.ui.View):
         else:
             await self.send_temporary_message(interaction.channel, "❌ Minecraft 關閉失敗")
 
-    @discord.ui.button(label="啟動 7 Days", style=discord.ButtonStyle.green, custom_id="start7d")
-    async def start_7d(self, interaction: discord.Interaction, button: discord.ui.Button):
-        await interaction.response.defer()
-        ctx = await self.bot.get_context(interaction.message)
-        cog = self.bot.get_cog("SevenDayServerControl")
-        if cog:
-            result = await cog.start_server(ctx)
-            if result is True:
-                await self.send_temporary_message(interaction.channel, "✅ 7 Days 啟動成功")
-                await self.schedule_status_update(interaction)
-            elif result is False:
-                await self.send_temporary_message(interaction.channel, "⚠️ 7 Days 已在執行中")
-            else:
-                await self.send_temporary_message(interaction.channel, "❌ 7 Days 啟動失敗")
+    # @discord.ui.button(label="啟動 7 Days", style=discord.ButtonStyle.green, custom_id="start7d")
+    # async def start_7d(self, interaction: discord.Interaction, button: discord.ui.Button):
+    #     await interaction.response.defer()
+    #     ctx = await self.bot.get_context(interaction.message)
+    #     cog = self.bot.get_cog("SevenDayServerControl")
+    #     if cog:
+    #         result = await cog.start_server(ctx)
+    #         if result is True:
+    #             await self.send_temporary_message(interaction.channel, "✅ 7 Days 啟動成功")
+    #             await self.schedule_status_update(interaction)
+    #         elif result is False:
+    #             await self.send_temporary_message(interaction.channel, "⚠️ 7 Days 已在執行中")
+    #         else:
+    #             await self.send_temporary_message(interaction.channel, "❌ 7 Days 啟動失敗")
 
-    @discord.ui.button(label="關閉 7 Days", style=discord.ButtonStyle.red, custom_id="stop7d")
-    async def stop_7d(self, interaction: discord.Interaction, button: discord.ui.Button):
-        await interaction.response.defer()
-        ctx = await self.bot.get_context(interaction.message)
-        cog = self.bot.get_cog("SevenDayServerControl")
-        if cog:
-            result = await cog.stop_server(ctx)
-            if result is True:
-                await self.send_temporary_message(interaction.channel, "🛑 7 Days 關閉成功")
-                await self.schedule_status_update(interaction)
-            elif result is False:
-                await self.send_temporary_message(interaction.channel, "⚠️ 7 Days 尚未啟動")
-            else:
-                await self.send_temporary_message(interaction.channel, "❌ 7 Days 關閉失敗")
+    # @discord.ui.button(label="關閉 7 Days", style=discord.ButtonStyle.red, custom_id="stop7d")
+    # async def stop_7d(self, interaction: discord.Interaction, button: discord.ui.Button):
+    #     await interaction.response.defer()
+    #     ctx = await self.bot.get_context(interaction.message)
+    #     cog = self.bot.get_cog("SevenDayServerControl")
+    #     if cog:
+    #         result = await cog.stop_server(ctx)
+    #         if result is True:
+    #             await self.send_temporary_message(interaction.channel, "🛑 7 Days 關閉成功")
+    #             await self.schedule_status_update(interaction)
+    #         elif result is False:
+    #             await self.send_temporary_message(interaction.channel, "⚠️ 7 Days 尚未啟動")
+    #         else:
+    #             await self.send_temporary_message(interaction.channel, "❌ 7 Days 關閉失敗")
+
+    # @discord.ui.button(label="啟動 Night of the Dead", style=discord.ButtonStyle.green, custom_id="startnotd")
+    # async def start_notd(self, interaction: discord.Interaction, button: discord.ui.Button):
+    #     await interaction.response.defer()
+    #     cog = self.bot.get_cog("NotdServerControl")
+    #     if not cog:
+    #         await self.send_temporary_message(interaction.channel, "❌ Night of the Dead Cog 未載入")
+    #         return
+    #     # 權限以「真正按按鈕的人」判斷(面板 ctx.author 會是 bot 自己)
+    #     if not cog.can_start(interaction.user.id):
+    #         await self.send_temporary_message(interaction.channel, cog.start_deny_message())
+    #         return
+    #     ctx = await self.bot.get_context(interaction.message)
+    #     result = await cog.do_start(ctx)
+    #     if result is True:
+    #         await self.send_temporary_message(interaction.channel, "✅ Night of the Dead 啟動成功")
+    #         await self.schedule_status_update(interaction)
+    #     elif result is False:
+    #         await self.send_temporary_message(interaction.channel, "⚠️ Night of the Dead 已在執行中")
+    #     else:
+    #         await self.send_temporary_message(interaction.channel, "❌ Night of the Dead 啟動失敗")
+
+    # @discord.ui.button(label="關閉 Night of the Dead", style=discord.ButtonStyle.red, custom_id="stopnotd")
+    # async def stop_notd(self, interaction: discord.Interaction, button: discord.ui.Button):
+    #     await interaction.response.defer()
+    #     ctx = await self.bot.get_context(interaction.message)
+    #     cog = self.bot.get_cog("NotdServerControl")
+    #     if cog:
+    #         result = await cog.stop_server(ctx)
+    #         if result is True:
+    #             await self.send_temporary_message(interaction.channel, "🛑 Night of the Dead 關閉成功")
+    #             await self.schedule_status_update(interaction)
+    #         elif result is False:
+    #             await self.send_temporary_message(interaction.channel, "⚠️ Night of the Dead 尚未啟動")
+    #         else:
+    #             await self.send_temporary_message(interaction.channel, "❌ Night of the Dead 關閉失敗")
 
     @discord.ui.button(label="查詢狀態", style=discord.ButtonStyle.blurple, custom_id="status")
     async def check_status(self, interaction: discord.Interaction, button: discord.ui.Button):
@@ -229,6 +265,20 @@ async def get_combined_status_embed(bot) -> discord.Embed:
 
     except Exception as e:
         embed.add_field(name="⚠️ 7 Days 狀態錯誤", value=str(e), inline=False)
+
+    # Night of the Dead
+    try:
+        notd_cog = bot.get_cog("NotdServerControl")
+        if notd_cog and notd_cog.is_process_running():
+            info = "狀態：🟢 在線中"
+            last_start = getattr(notd_cog, "last_started", None)
+            if last_start:
+                info += f"\n啟動時間：{last_start.strftime('%Y-%m-%d %H:%M:%S')}"
+            embed.add_field(name="🟢 Night of the Dead", value=info, inline=False)
+        else:
+            embed.add_field(name="🔴 Night of the Dead", value="伺服器未執行。", inline=False)
+    except Exception as e:
+        embed.add_field(name="⚠️ Night of the Dead 狀態錯誤", value=str(e), inline=False)
 
     # 額外資訊
     embed.add_field(

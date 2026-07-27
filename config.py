@@ -25,6 +25,13 @@ SEVENDAY_TELNET_PORT = int(os.getenv("SEVENDAY_TELNET_PORT"))
 SEVENDAY_TELNET_PASSWORD = os.getenv("SEVENDAY_TELNET_PASSWORD")
 SEVENDAY_STATUS_THREAD_ID = int(os.getenv("SEVENDAY_STATUS_THREAD_ID"))
 SEVENDAY_SAVE_PATH = os.getenv("SEVENDAY_SAVE_PATH")
+
+# Night of the Dead Server
+NOTD_DIR = os.getenv("NOTD_DIR")
+NOTD_BAT = os.getenv("NOTD_BAT")
+NOTD_KEYWORD = os.getenv("NOTD_KEYWORD", "LFServer")
+# 可無視開放時段、隨時啟動伺服器的使用者 Discord ID
+NOTD_ALLOWED_USER_ID = int(os.getenv("NOTD_ALLOWED_USER_ID", "508966382331887626"))
 # 資料轉發配置檔案
 FORWARDER_CONFIG = os.getenv("FORWARDER_CONFIG", "data/forwarder_map.json")
 BDNEWS_DATA_FILE = os.getenv("BDNEWS_DATA_FILE", "data/news_data.json")

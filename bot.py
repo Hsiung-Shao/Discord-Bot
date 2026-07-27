@@ -33,7 +33,6 @@ initial_extensions = [
     "commands.bdnews",
     "commands.minecraftserver",
     "commands.sevendayserver",
-    "commands.notd_server",
     "commands.commandspanel",
     "commands.admin",
     "commands.lol",
