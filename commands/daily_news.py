@@ -1,6 +1,6 @@
 import json
 import os
-from datetime import date
+from datetime import date, datetime
 
 import discord
 from discord.ext import commands
@@ -19,8 +19,12 @@ logger = get_logger("DailyNews", channel="daily_news")
 
 NEWS_FILE_PATH = "data/daily_news.json"
 
+# 寫入 daily_news.json 的「已推送」標記欄位,值為 "YYYY/MM/DD HH:MM:SS"
+# 缺欄位或開頭日期不是今天,皆視為未推送。Claude 隔天覆寫整檔時自然消失。
+PUSHED_AT_KEY = "bot_pushed_at"
+
 # 排程觸發時間 (Asia/Taipei),多時段重試避免 Claude 排程延遲
-CRON_SCHEDULES = [(9, 30), (10, 0), (10, 30)]
+CRON_SCHEDULES = [(10, 0), (10, 30), (11, 0)]
 
 # (JSON key, channel ID, 顯示標籤)
 CATEGORY_MAP = [
@@ -43,11 +47,16 @@ async def send_long_message(channel: discord.abc.Messageable, content: str) -> N
         await channel.send(content)
 
 
+def _write_json(data: dict) -> None:
+    """將 JSON 寫回 daily_news.json,保留 Claude 端的所有欄位。"""
+    with open(NEWS_FILE_PATH, "w", encoding="utf-8") as f:
+        json.dump(data, f, ensure_ascii=False, indent=2)
+
+
 class DailyNewsCog(commands.Cog):
     def __init__(self, bot: commands.Bot):
         self.bot = bot
         self.scheduler = AsyncIOScheduler()
-        self.sent_date: str | None = None
 
     async def cog_load(self):
         self._start_scheduler()
@@ -70,10 +79,6 @@ class DailyNewsCog(commands.Cog):
         try:
             today_str = date.today().strftime("%Y/%m/%d")
 
-            if self.sent_date == today_str:
-                logger.info(f"今日 ({today_str}) 已發送過,跳過本次觸發")
-                return
-
             if not os.path.exists(NEWS_FILE_PATH):
                 logger.warning(f"{NEWS_FILE_PATH} 不存在,等待下次重試")
                 return
@@ -90,8 +95,14 @@ class DailyNewsCog(commands.Cog):
                 logger.info(f"daily_news.json 日期 {news_date!r} 非今日 {today_str},跳過")
                 return
 
+            pushed_at = data.get(PUSHED_AT_KEY, "")
+            if isinstance(pushed_at, str) and pushed_at.startswith(today_str):
+                logger.info(f"今日 ({today_str}) 已推送 ({pushed_at}),跳過本次觸發")
+                return
+
             logger.info(f"偵測到 {today_str} 的新聞,開始發送...")
 
+            success_count = 0
             for key, channel_id, label in CATEGORY_MAP:
                 content = data.get(key, "")
                 if not channel_id or not content:
@@ -113,11 +124,24 @@ class DailyNewsCog(commands.Cog):
                 try:
                     await send_long_message(channel, content)
                     logger.info(f"✅ {label} 發送完成")
+                    success_count += 1
                 except Exception as e:
                     logger.error(f"❌ {label} 發送失敗: {e}")
 
-            self.sent_date = today_str
-            logger.info(f"🎉 今日 ({today_str}) 所有新聞發送完畢")
+            if success_count == 0:
+                logger.warning("本次無任何類別成功發送,不寫入 bot_pushed_at,下次觸發會重試")
+                return
+
+            now_str = datetime.now().strftime("%Y/%m/%d %H:%M:%S")
+            data[PUSHED_AT_KEY] = now_str
+            try:
+                _write_json(data)
+                logger.info(f"🎉 今日 ({today_str}) 推送完畢 ({success_count} 類成功),已寫入 {PUSHED_AT_KEY}={now_str}")
+            except Exception as e:
+                logger.error(
+                    f"⚠️ 寫入 {PUSHED_AT_KEY} 失敗: {e}。已成功發送 {success_count} 類,"
+                    f"下次觸發可能會重發,請手動處理或忽略"
+                )
 
         except Exception as e:
             logger.error(f"每日新聞檢查發送流程發生未預期錯誤: {e}")
@@ -125,9 +149,22 @@ class DailyNewsCog(commands.Cog):
     @commands.command(name="force_daily_news")
     @commands.is_owner()
     async def force_daily_news(self, ctx: commands.Context):
-        """手動重置今日發送狀態並立即重新檢查 (owner-only)。"""
-        self.sent_date = None
-        await ctx.send("✅ 已重置今日發送狀態,立即重新檢查...")
+        """手動清空今日的推送標記並立即重新檢查 (owner-only)。"""
+        cleared = False
+        if os.path.exists(NEWS_FILE_PATH):
+            try:
+                with open(NEWS_FILE_PATH, "r", encoding="utf-8") as f:
+                    data = json.load(f)
+                if data.get(PUSHED_AT_KEY):
+                    data[PUSHED_AT_KEY] = ""
+                    _write_json(data)
+                    cleared = True
+            except Exception as e:
+                await ctx.send(f"⚠️ 清空推送標記時發生錯誤: {e},但仍會嘗試重新檢查")
+                logger.error(f"force_daily_news 清空 {PUSHED_AT_KEY} 失敗: {e}")
+
+        msg = "✅ 已清空推送標記" if cleared else "ℹ️ 推送標記本就為空,無需清空"
+        await ctx.send(f"{msg},立即重新檢查...")
         await self._check_and_send_news()
 
 
