@@ -72,6 +72,12 @@ NLLB_DEVICE = os.getenv("NLLB_DEVICE", "auto")          # auto / cuda / cpu
 TRANSLATE_DEFAULT_TARGET = os.getenv("TRANSLATE_DEFAULT_TARGET", "zho_Hant")
 TRANSLATE_CHANNELS_FILE = os.getenv("TRANSLATE_CHANNELS_FILE", "data/translate_channels.json")
 
+# 專案版本更新公告 (推送頻道/身分組由 /release 指令管理,寫在 RELEASE_NOTIFY_FILE 內)
+RELEASE_NOTIFY_FILE = os.getenv("RELEASE_NOTIFY_FILE", "data/release_notify.json")
+# 選填:private repo 必須設定;public repo 設了可把 API 額度從 60/hr 提高到 5000/hr
+GITHUB_TOKEN = os.getenv("GITHUB_TOKEN", "")
+RELEASE_CHECK_INTERVAL_MINUTES = int(os.getenv("RELEASE_CHECK_INTERVAL_MINUTES", "30"))
+
 # Guild IDs (用於即時同步 slash commands，多個以逗號分隔)
 def _parse_guild_ids(raw: str) -> list[int]:
     result = []
