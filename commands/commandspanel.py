@@ -7,6 +7,8 @@ from datetime import datetime
 from config import CONTROL_THREAD_ID
 from pytz import timezone
 from commands.mc_server_config import load_servers
+from commands.panel_config import load_panel_config
+from utils.mc_log import detect_clean_shutdown
 
 
 class MinecraftServerSelect(discord.ui.Select):
@@ -72,7 +74,22 @@ class ServerControlPanelView(discord.ui.View):
         if not cog:
             await self.send_temporary_message(interaction.channel, "❌ Minecraft Cog 未載入")
             return
-        result = await cog.start_server(ctx, self.selected_mc_server_id)
+
+        profile = cog.get_profile(self.selected_mc_server_id)
+        if not profile:
+            await self.send_temporary_message(
+                interaction.channel, f"❌ 找不到伺服器 `{self.selected_mc_server_id}`"
+            )
+            return
+
+        # 權限以「真正按按鈕的人」判斷（面板的 ctx.author 會是 bot 自己）
+        if not cog.can_start(profile, interaction.user.id):
+            await self.send_temporary_message(
+                interaction.channel, cog.start_deny_message(profile), delay=30
+            )
+            return
+
+        result = await cog.do_start(ctx, profile)
         if result is True:
             await self.send_temporary_message(interaction.channel, "✅ Minecraft 啟動成功")
             await self.schedule_status_update(interaction)
@@ -187,57 +204,70 @@ async def safe_process_iter():
     return await loop.run_in_executor(None, lambda: list(psutil.process_iter(['name', 'cmdline'])))
 
 
-async def get_combined_status_embed(bot) -> discord.Embed:
-    embed = discord.Embed(
-        title="📊 伺服器狀態總覽",
-        description="目前的伺服器執行狀況如下：",
-        color=discord.Color.dark_teal()
-    )
-
-    # Minecraft 多伺服器狀態
+async def _add_minecraft_fields(embed: discord.Embed, bot, show_start_window: bool) -> None:
     mc_cog = bot.get_cog("MinecraftServerControl")
     servers = mc_cog.list_servers() if mc_cog else load_servers()
 
     if not servers:
         embed.add_field(name="⚠️ Minecraft", value="尚未設定任何伺服器", inline=False)
-    else:
-        for profile in servers:
-            # 先檢查這個 profile 對應的進程是否真的在跑（避免共用 port 導致誤判）
-            is_running = mc_cog.is_process_running(profile) if mc_cog else False
+        return
 
-            if not is_running:
-                embed.add_field(
-                    name=f"🔴 {profile.name}",
-                    value=f"伺服器未執行。\n位址：`{profile.host}:{profile.game_port}`",
-                    inline=False
-                )
-                continue
+    for profile in servers:
+        # 先檢查這個 profile 對應的進程是否真的在跑（避免共用 port 導致誤判）
+        is_running = mc_cog.is_process_running(profile) if mc_cog else False
 
-            last_start = mc_cog.last_started.get(profile.id) if mc_cog else None
-            last_backup = mc_cog.last_backup.get(profile.id) if mc_cog else None
+        # 有設開放時段限制時才顯示，沒設定的伺服器不會多出一行雜訊
+        window_line = ""
+        if show_start_window and profile.window.enabled:
+            window_line = f"\n開放啟動：{profile.window.describe()}（{profile.window.tz_display}）"
 
-            try:
-                mc = JavaServer(profile.host, profile.game_port)
-                status = await mc.async_status()
+        if not is_running:
+            embed.add_field(
+                name=f"🔴 {profile.name}",
+                value=f"伺服器未執行。\n位址：`{profile.host}:{profile.game_port}`{window_line}",
+                inline=False
+            )
+            continue
+
+        last_start = mc_cog.last_started.get(profile.id) if mc_cog else None
+        last_backup = mc_cog.last_backup.get(profile.id) if mc_cog else None
+
+        try:
+            mc = JavaServer(profile.host, profile.game_port)
+            status = await mc.async_status()
+            badge = "🟢"
+            info = (
+                f"狀態：🟢 在線中\n"
+                f"玩家：{status.players.online} / {status.players.max}\n"
+                f"位址：`{profile.host}:{profile.game_port}`"
+            )
+        except Exception:
+            # 進程在跑但查詢不到狀態。這有兩種完全不同的情況，不能都說「載入中」：
+            # 若 log 已出現完整關閉序列，代表這是「存完檔但 JVM 卡住沒退出」的殘留進程。
+            saved, _ = await asyncio.to_thread(detect_clean_shutdown, profile.console_log_path)
+            if saved:
+                badge = "🟠"
                 info = (
-                    f"狀態：🟢 在線中\n"
-                    f"玩家：{status.players.online} / {status.players.max}\n"
+                    f"狀態：🟠 殘留進程（已關閉但未退出）\n"
+                    f"世界已完成存檔，按「關閉 Minecraft」即可清除\n"
                     f"位址：`{profile.host}:{profile.game_port}`"
                 )
-            except Exception:
-                # 進程在跑但查詢不到狀態（可能還在載入中）
+            else:
+                badge = "🟡"
                 info = (
                     f"狀態：🟡 載入中或 RCON 未就緒\n"
                     f"位址：`{profile.host}:{profile.game_port}`"
                 )
 
-            if last_start:
-                info += f"\n啟動時間：{last_start.strftime('%Y-%m-%d %H:%M:%S')}"
-            if last_backup:
-                info += f"\n最後備份：{last_backup.strftime('%Y-%m-%d %H:%M:%S')}"
-            embed.add_field(name=f"🟢 {profile.name}", value=info, inline=False)
+        info += window_line
+        if last_start:
+            info += f"\n啟動時間：{last_start.strftime('%Y-%m-%d %H:%M:%S')}"
+        if last_backup:
+            info += f"\n最後備份：{last_backup.strftime('%Y-%m-%d %H:%M:%S')}"
+        embed.add_field(name=f"{badge} {profile.name}", value=info, inline=False)
 
-    # 7 Days to Die
+
+async def _add_sevendays_fields(embed: discord.Embed, bot) -> None:
     try:
         seven_cog = bot.get_cog("SevenDayServerControl")
         last_start = getattr(seven_cog, "last_started", None)
@@ -262,11 +292,11 @@ async def get_combined_status_embed(bot) -> discord.Embed:
             embed.add_field(name="🟢 7 Days to Die", value=info, inline=False)
         else:
             embed.add_field(name="🔴 7 Days to Die", value="伺服器未執行。", inline=False)
-
     except Exception as e:
         embed.add_field(name="⚠️ 7 Days 狀態錯誤", value=str(e), inline=False)
 
-    # Night of the Dead
+
+async def _add_notd_fields(embed: discord.Embed, bot) -> None:
     try:
         notd_cog = bot.get_cog("NotdServerControl")
         if notd_cog and notd_cog.is_process_running():
@@ -280,17 +310,27 @@ async def get_combined_status_embed(bot) -> discord.Embed:
     except Exception as e:
         embed.add_field(name="⚠️ Night of the Dead 狀態錯誤", value=str(e), inline=False)
 
-    # 額外資訊
-    embed.add_field(
-        name="🌐 伺服器 IP",
-        value="`26.82.236.63`  |  `125.228.138.70`",
-        inline=False
+
+async def get_combined_status_embed(bot) -> discord.Embed:
+    """產生面板 embed。顯示內容由 data/panel_config.json 控制（改檔即生效，不必重啟）。"""
+    cfg = load_panel_config()
+
+    embed = discord.Embed(
+        title=cfg["title"],
+        description=cfg["description"],
+        color=discord.Color.dark_teal()
     )
-    embed.add_field(
-        name="🔐 Radmin VPN",
-        value="`ID: IceRains`\n`密碼: 111222`",
-        inline=False
-    )
+
+    if cfg.get("show_minecraft", True):
+        await _add_minecraft_fields(embed, bot, cfg.get("show_start_window", True))
+    if cfg.get("show_sevendays", False):
+        await _add_sevendays_fields(embed, bot)
+    if cfg.get("show_notd", False):
+        await _add_notd_fields(embed, bot)
+
+    # 額外資訊（IP、VPN 帳密等）皆由設定檔提供
+    for field in cfg.get("extra_fields", []):
+        embed.add_field(name=field["name"], value=field["value"], inline=field.get("inline", False))
 
     tz = timezone("Asia/Taipei")
     now = datetime.now(tz).strftime("%Y-%m-%d %H:%M:%S")

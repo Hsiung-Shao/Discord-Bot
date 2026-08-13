@@ -3,8 +3,8 @@ import subprocess
 import asyncio
 import psutil
 from datetime import datetime
-from pytz import timezone
 from discord.ext import commands
+from core.start_window import StartWindow
 from utils.logger import clear_channel_log, get_logger
 from config import NOTD_DIR, NOTD_BAT, NOTD_KEYWORD, NOTD_ALLOWED_USER_ID
 
@@ -25,10 +25,14 @@ class NotdServerControl(commands.Cog):
         self.keyword = NOTD_KEYWORD
         self.last_started = None
         self.delete_delay = 10
-        # 啟動權限:授權使用者不限時段;其他人僅限開放時段
+        # 啟動權限:授權使用者不限時段;其他人僅限開放時段(邏輯與 Minecraft 共用)
         self.allowed_user_id = NOTD_ALLOWED_USER_ID
-        self.allow_from_hour = 20  # 開放啟動時段起點(台北時間,含)
-        self.allow_to_hour = 5     # 開放啟動時段終點(台北時間,不含)
+        self.start_window = StartWindow(
+            enabled=True,
+            from_hour=21,   # 開放啟動時段起點(台北時間,含)
+            to_hour=5,      # 開放啟動時段終點(台北時間,不含)
+            allowed_user_ids=[NOTD_ALLOWED_USER_ID],
+        )
 
     def is_process_running(self) -> bool:
         for proc in psutil.process_iter(['name']):
@@ -40,20 +44,15 @@ class NotdServerControl(commands.Cog):
         return False
 
     def _within_start_window(self) -> bool:
-        """是否在開放啟動時段(每日 22:00 ~ 翌日 05:00,台北時間,跨午夜)。"""
-        h = datetime.now(timezone("Asia/Taipei")).hour
-        return h >= self.allow_from_hour or h < self.allow_to_hour
+        """是否在開放啟動時段(實際時段見 __init__ 的 self.start_window,不在此重複寫死)。"""
+        return self.start_window.is_open()
 
     def can_start(self, user_id: int) -> bool:
         """啟動權限:授權使用者不限時段;其他人僅限開放時段。"""
-        return user_id == self.allowed_user_id or self._within_start_window()
+        return self.start_window.can_start(user_id)
 
     def start_deny_message(self) -> str:
-        return (
-            f"⛔ 目前非開放啟動時段。Night of the Dead 僅能於每日 "
-            f"{self.allow_from_hour:02d}:00–{self.allow_to_hour:02d}:00（台北時間）開放啟動,"
-            f"其餘時段僅限授權使用者。"
-        )
+        return self.start_window.deny_message("Night of the Dead")
 
     async def _send(self, ctx, content: str):
         try:
