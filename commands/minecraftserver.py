@@ -48,13 +48,41 @@ class MinecraftServerControl(commands.Cog):
         return servers[0].id if servers else None
 
     def _read_pid_file(self, profile: MinecraftServerProfile) -> Optional[int]:
-        if os.path.exists(profile.pid_file):
-            try:
-                with open(profile.pid_file, "r") as f:
-                    return int(f.read().strip())
-            except Exception as e:
-                logger.warning(f"⚠️ 無法讀取 PID 檔案 ({profile.id})：{e}")
-        return None
+        """讀 PID 檔，並確認它仍指向當初記錄的那個進程。
+
+        PID 檔第二行存的是進程建立時間：**Windows 會重用 PID**，重開機後某個
+        不相干的新進程很可能拿到同一個號碼。只比對數字的話，只要那個新進程
+        剛好是 java（或底下有 java），就會被誤判成「伺服器還在跑」。
+        """
+        if not os.path.exists(profile.pid_file):
+            return None
+
+        try:
+            with open(profile.pid_file, "r") as f:
+                lines = f.read().strip().splitlines()
+            pid = int(lines[0])
+        except Exception as e:
+            logger.warning(f"⚠️ 無法讀取 PID 檔案 ({profile.id})：{e}")
+            return None
+
+        if len(lines) < 2:
+            # 舊格式（只有 PID）：沒有建立時間可比對，交給後續的 java 子孫檢查把關
+            return pid
+
+        try:
+            recorded = float(lines[1])
+            actual = psutil.Process(pid).create_time()
+        except (psutil.NoSuchProcess, psutil.AccessDenied, ValueError, IndexError):
+            return pid
+
+        if abs(actual - recorded) > 1.0:
+            logger.info(
+                f"🧹 [{profile.id}] PID {pid} 已被其他進程重用"
+                f"（記錄的建立時間 {recorded:.0f}，實際 {actual:.0f}），視為已關閉並清除 PID 檔"
+            )
+            self._remove_pid_file(profile)
+            return None
+        return pid
 
     def _pid_has_java_descendant(self, pid: int) -> bool:
         """檢查 PID 本身或其子孫進程中是否含 java（Minecraft 伺服器本體）"""
@@ -88,9 +116,14 @@ class MinecraftServerControl(commands.Cog):
         return None
 
     def _write_pid_file(self, profile: MinecraftServerProfile, pid: int):
+        # 一併記錄建立時間，讓 _read_pid_file 能認出 PID 被重用的情況
+        try:
+            create_time = psutil.Process(pid).create_time()
+        except (psutil.NoSuchProcess, psutil.AccessDenied):
+            create_time = None
         try:
             with open(profile.pid_file, "w") as f:
-                f.write(str(pid))
+                f.write(str(pid) if create_time is None else f"{pid}\n{create_time!r}")
         except Exception as e:
             logger.warning(f"⚠️ 寫入 PID 檔案失敗 ({profile.id})：{e}")
 
