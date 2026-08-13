@@ -111,7 +111,15 @@ class ServerControlPanelView(discord.ui.View):
             await self.send_temporary_message(interaction.channel, "🛑 Minecraft 關閉成功")
             await self.schedule_status_update(interaction)
         elif result is False:
-            await self.send_temporary_message(interaction.channel, "⚠️ Minecraft 尚未啟動")
+            # 按鈕操作的是「下方選單選到的那台」，選錯時光說「尚未啟動」會讓人一頭霧水
+            msg = "⚠️ Minecraft 尚未啟動"
+            others = [
+                p.name for p in cog.list_servers()
+                if p.id != self.selected_mc_server_id and cog.is_process_running(p)
+            ]
+            if others:
+                msg += f"\n　└ 目前在執行的是：{'、'.join(others)}，請先在下方選單切換到該伺服器"
+            await self.send_temporary_message(interaction.channel, msg, delay=30)
         else:
             await self.send_temporary_message(interaction.channel, "❌ Minecraft 關閉失敗")
 
@@ -249,7 +257,7 @@ async def _add_minecraft_fields(embed: discord.Embed, bot, show_start_window: bo
                 badge = "🟠"
                 info = (
                     f"狀態：🟠 殘留進程（已關閉但未退出）\n"
-                    f"世界已完成存檔，按「關閉 Minecraft」即可清除\n"
+                    f"世界已完成存檔，**在下方選單選到本伺服器**後按「關閉 Minecraft」即可清除\n"
                     f"位址：`{profile.host}:{profile.game_port}`"
                 )
             else:
