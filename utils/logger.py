@@ -3,10 +3,16 @@
 設計重點
 --------
 - 預設行為:`get_logger(name)` 仍會寫到 logs/bot.log + console(向後相容)
-- 進階用法:`get_logger(name, channel="minecraft")` 會把該 logger 的訊息**只寫到**
-  logs/minecraft.log + console,不再 propagate 到 root,避免污染 bot.log
-- 各 channel 的 log 檔每天午夜切檔(保留 30 份);同時保留 `clear_channel_log(channel)`
-  讓你在 server 啟動等時機手動清空當前檔
+- 降噪用法:`get_logger(name, level=logging.WARNING)` 同樣寫進 bot.log,但只收
+  WARNING 以上;新聞抓取、自動化任務等「正常運作不需要留紀錄」的模組用這個
+- 獨立檔用法:`get_logger(name, channel="minecraft")` 會把該 logger 的訊息**只寫到**
+  logs/minecraft.log + console,不再 propagate 到 root,避免污染 bot.log。
+  目前只有 minecraft / notd / sevenday 三個 channel 在用,因為它們的 log 會在
+  伺服器啟動時被 `clear_channel_log(channel)` 清空,當成單次運行紀錄
+- 各 log 檔每天午夜切檔(保留 30 份);切檔後的歷史檔由 tasks/log_compressor.py
+  每 7 天壓成 .gz、.gz 滿 14 天刪除
+- APScheduler 自身的 logger 在這裡壓到 WARNING,避免「Running job / executed
+  successfully」每次觸發都灌進 bot.log 與 stderr
 """
 
 from __future__ import annotations
@@ -51,6 +57,10 @@ if not getattr(_root_logger, "_initialized_by_botlogger", False):
     _root_logger.addHandler(_root_stream)
     _root_logger._initialized_by_botlogger = True  # type: ignore[attr-defined]
 
+# APScheduler 每次觸發 job 都會以 INFO 記「Running job」「executed successfully」,
+# 這些會經 root 流進 bot.log 與 console(NSSM 的 stderr.log),只留 WARNING 以上
+logging.getLogger("apscheduler").setLevel(logging.WARNING)
+
 
 # === Channel handler 快取 ===
 _channel_handlers: dict[str, TimedRotatingFileHandler] = {}
@@ -69,14 +79,23 @@ def channel_log_path(channel: str) -> str:
     return os.path.join(log_dir, f"{channel}.log")
 
 
-def get_logger(name: str, *, channel: Optional[str] = None) -> logging.Logger:
+def get_logger(
+    name: str,
+    *,
+    channel: Optional[str] = None,
+    level: Optional[int] = None,
+) -> logging.Logger:
     """取得 logger。
 
     - 不傳 channel:行為跟舊版相同 — 訊息進到 root logger,寫進 logs/bot.log + console
+    - 傳 level(例如 logging.WARNING):該 logger 只放行此等級以上的訊息;
+      搭配不傳 channel 就是「進 bot.log,但只有警告/錯誤才寫」
     - 傳 channel:訊息只寫到 logs/<channel>.log + console,不再 propagate 到 root,
       也就是 bot.log 不會收到這些訊息(用來分離各功能的日誌)
     """
     logger = logging.getLogger(name)
+    if level is not None:
+        logger.setLevel(level)
     if channel is None:
         return logger
 
@@ -87,7 +106,8 @@ def get_logger(name: str, *, channel: Optional[str] = None) -> logging.Logger:
         console.setFormatter(_FORMATTER)
         logger.addHandler(console)
         logger.propagate = False  # 不再寫到 root → 不污染 bot.log
-        logger.setLevel(logging.INFO)
+        if level is None:
+            logger.setLevel(logging.INFO)
         logger._channel_setup = True  # type: ignore[attr-defined]
         logger._channel_name = channel  # type: ignore[attr-defined]
     return logger

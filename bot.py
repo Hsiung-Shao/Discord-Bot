@@ -85,7 +85,7 @@ async def on_ready():
     bot.backup_manager = backup_manager
     # 初始化備份任務
     bot.backup_task = AutoBackupTask(bot)
-    LogCompressor(bot)
+    bot.log_compressor = LogCompressor(bot)  # 保住參考,避免實例被回收
     logger.info("📦 自動備份任務已註冊")
 
 async def initialize_panel(bot):

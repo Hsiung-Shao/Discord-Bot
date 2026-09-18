@@ -4,9 +4,10 @@ import asyncio
 import tempfile
 from datetime import datetime
 from backups.base_handler import BaseBackupHandler
+import logging
 from utils.logger import get_logger
 
-logger = get_logger(__name__, channel="backup")
+logger = get_logger(__name__, level=logging.WARNING)
 
 
 class MinecraftBackupHandler(BaseBackupHandler):

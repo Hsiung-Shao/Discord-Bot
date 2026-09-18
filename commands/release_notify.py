@@ -30,9 +30,10 @@ from config import (
     GITHUB_TOKEN,
     RELEASE_CHECK_INTERVAL_MINUTES,
 )
+import logging
 from utils.logger import get_logger
 
-logger = get_logger("ReleaseNotify", channel="release_notify")
+logger = get_logger("ReleaseNotify", level=logging.WARNING)
 
 GITHUB_API_BASE = "https://api.github.com"
 GITHUB_PER_PAGE = 10

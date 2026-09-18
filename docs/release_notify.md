@@ -113,7 +113,7 @@ Discord Embed 上限 4096 字,超過的部分會在換行處截斷並附上「�
 
 **Q: 設定存在哪?**
 `data/release_notify.json`(路徑可用 `.env` 的 `RELEASE_NOTIFY_FILE` 改)。
-`data/` 已在 `.gitignore` 內,不會進版控。日誌在 `logs/release_notify.log`。
+`data/` 已在 `.gitignore` 內,不會進版控。日誌在 `logs/bot.log`(只記 WARNING 以上)。自動檢查間隔預設 300 分鐘(5 小時)。
 
 **Q: 指令沒出現在 Discord?**
 slash 指令靠 `bot.py` 啟動時同步到 `.env` 的 `GUILD_IDS` 所列伺服器,重啟 bot 即可。

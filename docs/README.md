@@ -70,14 +70,11 @@ DiscordBot/
 │
 ├── tasks/                     # 排程任務
 │   ├── auto_backup_task.py    # 自動備份排程
-│   ├── log_compressor.py      # 日誌壓縮排程
-│   └── panel_updater.py       # 控制面板狀態更新
-│
-├── fetchers/                  # 外部資料擷取器
-│   └── acgsecrets.py          # ACG 相關資料爬蟲
+│   ├── log_compressor.py      # 日誌壓縮排程 (每 7 天壓 .gz,14 天後刪)
+│   └── panel_updater.py       # 控制面板狀態更新 (每 5 分鐘)
 │
 ├── utils/                     # 工具模組
-│   └── logger.py              # 日誌系統 (每日切檔 + 壓縮)
+│   └── logger.py              # 日誌系統 (每日切檔;新聞/自動化任務只記 WARNING 以上到 bot.log)
 │
 ├── data/                      # 資料存儲
 │   ├── news_data.json         # 新聞快取

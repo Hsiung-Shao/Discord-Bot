@@ -80,7 +80,7 @@ TRANSLATE_CHANNELS_FILE = os.getenv("TRANSLATE_CHANNELS_FILE", "data/translate_c
 RELEASE_NOTIFY_FILE = os.getenv("RELEASE_NOTIFY_FILE", "data/release_notify.json")
 # 選填:private repo 必須設定;public repo 設了可把 API 額度從 60/hr 提高到 5000/hr
 GITHUB_TOKEN = os.getenv("GITHUB_TOKEN", "")
-RELEASE_CHECK_INTERVAL_MINUTES = int(os.getenv("RELEASE_CHECK_INTERVAL_MINUTES", "30"))
+RELEASE_CHECK_INTERVAL_MINUTES = int(os.getenv("RELEASE_CHECK_INTERVAL_MINUTES", "300"))
 
 # 表情回應領取身分組 (面板與 emoji→身分組對照由 /rr 指令管理,按 guild 分層存檔)
 REACTION_ROLES_FILE = os.getenv("REACTION_ROLES_FILE", "data/reaction_roles.json")
