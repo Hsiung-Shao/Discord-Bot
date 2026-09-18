@@ -70,14 +70,11 @@ DiscordBot/
 │
 ├── tasks/                     # 排程任務
 │   ├── auto_backup_task.py    # 自動備份排程
-│   ├── log_compressor.py      # 日誌壓縮排程
-│   └── panel_updater.py       # 控制面板狀態更新
-│
-├── fetchers/                  # 外部資料擷取器
-│   └── acgsecrets.py          # ACG 相關資料爬蟲
+│   ├── log_compressor.py      # 日誌壓縮排程 (每 7 天壓 .gz,14 天後刪)
+│   └── panel_updater.py       # 控制面板狀態更新 (每 5 分鐘)
 │
 ├── utils/                     # 工具模組
-│   └── logger.py              # 日誌系統 (每日切檔 + 壓縮)
+│   └── logger.py              # 日誌系統 (每日切檔;新聞/自動化任務只記 WARNING 以上到 bot.log)
 │
 ├── data/                      # 資料存儲
 │   ├── news_data.json         # 新聞快取
@@ -164,7 +161,14 @@ create_discordbot_service.bat
 ### 伺服器管理
 
 - `!startmc` / `!stopmc` - Minecraft 伺服器控制
+- `!mccmd` / `!mcconsole` - Minecraft RCON 送指令 / 看 console 輸出
 - `!start7d` / `!stop7d` - 7 Days to Die 伺服器控制
+
+> 本機互動 console:雙擊 `tools/mc_console.bat`(即時 tail server log + RCON 下指令,不依賴 bot)
+>
+> 設定檔:`data/minecraft_servers.json` 可逐台設定關閉倒數 (`shutdown_countdown`) 與
+> 開放啟動時段 (`start_window`);`data/panel_config.json` 控制面板顯示內容(改檔即生效)。
+> 時段判斷邏輯在 `core/start_window.py`,Minecraft 與 Night of the Dead 共用。
 
 ### 新聞功能
 

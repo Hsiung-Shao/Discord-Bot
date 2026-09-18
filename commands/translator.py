@@ -28,9 +28,10 @@ from core.nllb_engine import (
     FLORES_TO_NAME,
     FLAG_TO_FLORES,
 )
+import logging
 from utils.logger import get_logger
 
-logger = get_logger(__name__, channel="translate")
+logger = get_logger(__name__, level=logging.WARNING)
 
 EMBED_COLOR = 0x3498DB
 

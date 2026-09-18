@@ -3,9 +3,10 @@ import asyncio
 import tempfile
 import shutil
 from datetime import datetime, timedelta
+import logging
 from utils.logger import get_logger
 
-logger = get_logger(__name__, channel="backup")
+logger = get_logger(__name__, level=logging.WARNING)
 
 class AutoBackupTask:
     def __init__(self, bot, interval_minutes=60, retention_hours=36):

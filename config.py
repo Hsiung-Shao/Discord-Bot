@@ -21,6 +21,12 @@ MINECRAFT_STATUS_THREAD_ID = int(os.getenv("MINECRAFT_STATUS_THREAD_ID"))
 SEVENDAY_DIR = os.getenv("SEVENDAY_DIR")
 SEVENDAY_EXE = os.getenv("SEVENDAY_EXE")
 SEVENDAY_KEYWORD = os.getenv("SEVENDAY_KEYWORD")
+# 選填:程序命令列還要含此字串才算伺服器。用客戶端 7DaysToDie.exe 當專用伺服器時,
+# 遊戲客戶端與伺服器同名,靠 "-dedicated" 區分
+SEVENDAY_CMDLINE_KEYWORD = os.getenv("SEVENDAY_CMDLINE_KEYWORD", "")
+# 選填:Windows 排程任務名稱。bot 以服務(session 0)執行時直接 Popen 的視窗不可見,
+# 設定後改用 schtasks /Run 觸發「以使用者互動身分」的任務,伺服器 console 會顯示在桌面
+SEVENDAY_START_TASK = os.getenv("SEVENDAY_START_TASK", "")
 SEVENDAY_TELNET_PORT = int(os.getenv("SEVENDAY_TELNET_PORT"))
 SEVENDAY_TELNET_PASSWORD = os.getenv("SEVENDAY_TELNET_PASSWORD")
 SEVENDAY_STATUS_THREAD_ID = int(os.getenv("SEVENDAY_STATUS_THREAD_ID"))
@@ -42,8 +48,6 @@ BDUST_REMINDER_CHANNEL_ID = int(os.getenv("BDUST_REMINDER_CHANNEL_ID", "0"))
 BDUST_DATA_FILE = "data/news_data.json"
 BDUST_REMIND_USERS_FILE = "data/bdust_remind_users.json"
 
-
-ANIME_SONG_DATA_FILE = os.getenv("ANIME_SONG_DATA_FILE")
 
 # Backup Directory
 BACKUP_ROOT = os.getenv("BACKUP_ROOT")
@@ -76,7 +80,7 @@ TRANSLATE_CHANNELS_FILE = os.getenv("TRANSLATE_CHANNELS_FILE", "data/translate_c
 RELEASE_NOTIFY_FILE = os.getenv("RELEASE_NOTIFY_FILE", "data/release_notify.json")
 # 選填:private repo 必須設定;public repo 設了可把 API 額度從 60/hr 提高到 5000/hr
 GITHUB_TOKEN = os.getenv("GITHUB_TOKEN", "")
-RELEASE_CHECK_INTERVAL_MINUTES = int(os.getenv("RELEASE_CHECK_INTERVAL_MINUTES", "30"))
+RELEASE_CHECK_INTERVAL_MINUTES = int(os.getenv("RELEASE_CHECK_INTERVAL_MINUTES", "300"))
 
 # 表情回應領取身分組 (面板與 emoji→身分組對照由 /rr 指令管理,按 guild 分層存檔)
 REACTION_ROLES_FILE = os.getenv("REACTION_ROLES_FILE", "data/reaction_roles.json")

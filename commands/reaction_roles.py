@@ -20,9 +20,10 @@ from discord import app_commands
 from discord.ext import commands
 
 from config import REACTION_ROLES_FILE
+import logging
 from utils.logger import get_logger
 
-logger = get_logger("ReactionRoles", channel="reaction_roles")
+logger = get_logger("ReactionRoles", level=logging.WARNING)
 
 DEFAULT_TITLE = "🎭 領取身分組"
 DEFAULT_DESCRIPTION = "點下方的表情符號即可領取對應身分組,再點一次(移除回應)就會收回。"

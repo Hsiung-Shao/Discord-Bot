@@ -2,6 +2,7 @@ import os
 import json
 from dataclasses import dataclass, asdict, field
 from typing import Optional
+from core.start_window import StartWindow
 from utils.logger import get_logger
 
 logger = get_logger(__name__, channel="minecraft")
@@ -24,6 +25,14 @@ class MinecraftServerProfile:
     world_folder: str = "world"
     auto_backup: bool = True
     startup_timeout: int = 300
+    # 送出 RCON stop 後最多等幾秒讓 java 自行退出;大型整合包多維度存檔會超過 60 秒
+    shutdown_timeout: int = 180
+    # 關閉前的倒數廣播節點(秒),由大到小;設成 [] 代表不倒數、立即關閉
+    shutdown_countdown: list[int] = field(
+        default_factory=lambda: [60, 30, 10, 5, 4, 3, 2, 1]
+    )
+    # 開放啟動時段;None 或 {"enabled": false} 代表不限制。格式見 core/start_window.py
+    start_window: Optional[dict] = None
     disabled: bool = False
 
     @property
@@ -37,6 +46,31 @@ class MinecraftServerProfile:
     @property
     def world_path(self) -> str:
         return os.path.join(self.base_path, self.world_folder)
+
+    @property
+    def console_log_path(self) -> str:
+        """server 自己輸出的 console log(等同啟動視窗裡看到的內容)。"""
+        return os.path.join(self.base_path, "logs", "latest.log")
+
+    @property
+    def window(self) -> StartWindow:
+        """這台伺服器的開放啟動時段(未設定則為不限制)。"""
+        return StartWindow.from_dict(self.start_window)
+
+    @property
+    def countdown_steps(self) -> list[int]:
+        """正規化後的倒數節點:去重、去掉非正數、由大到小。"""
+        raw = self.shutdown_countdown or []
+        steps = set()
+        for value in raw:
+            try:
+                seconds = int(value)
+            except (TypeError, ValueError):
+                logger.warning(f"⚠️ [{self.id}] 忽略無效的倒數節點：{value!r}")
+                continue
+            if seconds > 0:
+                steps.add(seconds)
+        return sorted(steps, reverse=True)
 
 
 def _read_raw() -> dict:

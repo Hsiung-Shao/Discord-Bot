@@ -9,9 +9,10 @@ from config import BDNEWS_DATA_FILE, BDUST_REMINDER_CHANNEL_ID, BDUST_REMIND_USE
 from apscheduler.schedulers.asyncio import AsyncIOScheduler
 from apscheduler.triggers.interval import IntervalTrigger
 from apscheduler.triggers.cron import CronTrigger  # 新增：每週提醒使用
+import logging
 from utils.logger import get_logger
 
-logger = get_logger("BDNews", channel="bdnews")
+logger = get_logger("BDNews", level=logging.WARNING)
 DATA_FILE = BDNEWS_DATA_FILE
 BDNEWS_CHANNELS_FILE = "data/bdnews_channels.json"
 
@@ -76,10 +77,10 @@ class Bdust(commands.Cog):
         self._start_scheduler()
 
     def _start_scheduler(self):
-        self.scheduler.add_job(self._fetch_news_data, IntervalTrigger(hours=1))
+        self.scheduler.add_job(self._fetch_news_data, IntervalTrigger(hours=5))
         self.scheduler.add_job(self._weekly_reminder, CronTrigger(day_of_week='sun', hour=22, minute=30, timezone='Asia/Taipei'))
         self.scheduler.start()
-        logger.info("BDNews 排程器已啟動，每小時執行一次。")
+        logger.info("BDNews 排程器已啟動，每 5 小時執行一次。")
 
     @commands.command(name="fetchnews")
     async def fetch_news_command(self, ctx):

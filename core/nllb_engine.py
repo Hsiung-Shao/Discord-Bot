@@ -17,9 +17,10 @@ from __future__ import annotations
 import asyncio
 from typing import Optional
 
+import logging
 from utils.logger import get_logger
 
-logger = get_logger(__name__, channel="translate")
+logger = get_logger(__name__, level=logging.WARNING)
 
 
 # === 常用語言集:(顯示名, FLORES-200 碼) ===

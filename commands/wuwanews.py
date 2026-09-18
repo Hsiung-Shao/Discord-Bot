@@ -25,10 +25,11 @@ from discord.ui import View, Button, Select
 from config import WUWA_DATA_FILE
 from apscheduler.schedulers.asyncio import AsyncIOScheduler
 from apscheduler.triggers.interval import IntervalTrigger
+import logging
 from utils.logger import get_logger
 from urllib.parse import urljoin
 
-logger = get_logger("WuwaNews", channel="wuwanews")
+logger = get_logger("WuwaNews", level=logging.WARNING)
 
 WUWA_CHANNELS_FILE = "data/wuwanews_channels.json"
 
@@ -127,9 +128,9 @@ class WuwaNews(commands.Cog):
             self.scheduler.shutdown(wait=False)
 
     def _start_scheduler(self):
-        self.scheduler.add_job(self._fetch_news_task, IntervalTrigger(hours=1))
+        self.scheduler.add_job(self._fetch_news_task, IntervalTrigger(hours=5))
         self.scheduler.start()
-        logger.info("鳴潮公告排程已啟動,每 1 小時檢查一次")
+        logger.info("鳴潮公告排程已啟動,每 5 小時檢查一次")
 
     def _load_sent_news(self):
         if not os.path.exists(WUWA_DATA_FILE):

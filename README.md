@@ -60,8 +60,35 @@
 
 ### 5. Minecraft 伺服器管理 (`commands.minecraftserver`)
 - **指令**:
-    - `!startmc`: 啟動 Minecraft 伺服器。
-    - `!stopmc`: 優雅關閉 Minecraft 伺服器 (發送公告 -> 存檔 -> 關閉)。
+    - `!startmc [server_id]`: 啟動 Minecraft 伺服器。
+    - `!stopmc [server_id]`: 優雅關閉伺服器 (公告 -> `save-all flush` -> `stop` -> 確認存檔完成)。
+    - `!mccmd <指令> [server_id]`: (擁有者) 透過 RCON 送指令，等同在 server console 打字。
+    - `!mcconsole [server_id] [行數] [raw]`: (擁有者) 顯示 server console (`logs/latest.log`) 最後幾行。
+- **本機互動 console**: 雙擊 `tools/mc_console.bat`，可即時看 server 輸出並直接打指令
+  (獨立於 bot 運作，bot 停掉也能用)。
+- **每台伺服器可各自設定** (`data/minecraft_servers.json`):
+    - `shutdown_countdown`: 關閉前的遊戲內倒數廣播節點 (秒)，例如 `[60, 30, 10, 5, 4, 3, 2, 1]`。
+      設成 `[]` 代表不倒數、立即關閉。清單會自動去重與排序，10 秒以下改用短句廣播。
+    - `start_window`: 開放啟動時段，`{"enabled": true, "from_hour": 20, "to_hour": 5,
+      "tz": "Asia/Taipei", "allowed_user_ids": [123...]}`。`from_hour` 含、`to_hour` 不含，
+      支援跨午夜 (20→5) 與一般區間 (9→18)；`allowed_user_ids` 內的人不受時段限制。
+      `enabled: false` (預設) 代表完全不限制。
+    - `shutdown_timeout`: 送出 `stop` 後最多等幾秒讓 java 自行退出 (預設 180)。
+
+### 5.1 控制面板顯示 (`data/panel_config.json`)
+
+面板的標題、要顯示哪些遊戲區塊、伺服器 IP、Radmin VPN 帳密都在這個檔案裡，**改完存檔即生效，
+不必重啟 bot** (面板每次產生時重讀)：
+
+| 欄位 | 說明 |
+|------|------|
+| `title` / `description` | 面板標題與說明文字 |
+| `show_minecraft` | 是否顯示 Minecraft 各伺服器狀態 (預設 `true`) |
+| `show_sevendays` / `show_notd` | 是否顯示 7DTD / Night of the Dead 區塊 (預設 `false`) |
+| `show_start_window` | 有設開放時段的伺服器是否顯示「開放啟動：20:00–05:00」 |
+| `extra_fields` | 自訂欄位陣列，每項 `{"name": ..., "value": ...}`，IP 與 VPN 帳密放這裡 |
+
+檔案不存在時會自動產生一份預設值；JSON 打錯字時會退回內建預設並記 log，面板不會因此掛掉。
 
 ### 6. 7 Days to Die 伺服器管理 (`commands.sevendayserver`)
 - **指令**:
@@ -107,7 +134,9 @@ MINECRAFT_STATUS_THREAD_ID=狀態監控頻道ID
 
 # 7 Days to Die Server
 SEVENDAY_DIR=伺服器路徑
-SEVENDAY_EXE=啟動執行檔名稱.exe
+SEVENDAY_EXE=啟動執行檔名稱.exe 或 startdedicated.bat
+SEVENDAY_KEYWORD=程序偵測關鍵字(專用伺服器 7DaysToDieServer.exe;用客戶端 exe 當伺服器時填 7DaysToDie.exe)
+SEVENDAY_CMDLINE_KEYWORD=選填,命令列還須含此字串才算伺服器(客戶端 exe 當伺服器時填 -dedicated,以免把遊戲客戶端當成伺服器)
 SEVENDAY_TELNET_PORT=8081
 SEVENDAY_TELNET_PASSWORD=Telnet密碼
 SEVENDAY_STATUS_THREAD_ID=狀態監控頻道ID

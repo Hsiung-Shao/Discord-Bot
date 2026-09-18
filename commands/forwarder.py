@@ -5,9 +5,10 @@ from discord.ext import commands
 import json
 import os
 from config import FORWARDER_CONFIG
+import logging
 from utils.logger import get_logger
 
-logger = get_logger("Forwarder", channel="forwarder")
+logger = get_logger("Forwarder", level=logging.WARNING)
 
 class Forwarder(commands.Cog):
     def __init__(self, bot):

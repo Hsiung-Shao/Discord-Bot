@@ -13,9 +13,10 @@ from config import (
     DAILY_NEWS_GITHUB_CHANNEL_ID,
     DAILY_NEWS_STOCK_CHANNEL_ID,
 )
+import logging
 from utils.logger import get_logger
 
-logger = get_logger("DailyNews", channel="daily_news")
+logger = get_logger("DailyNews", level=logging.WARNING)
 
 NEWS_FILE_PATH = "data/daily_news.json"
 

@@ -9,9 +9,10 @@ from discord.ui import View, Button
 from config import FF14_DATA_FILE
 from apscheduler.schedulers.asyncio import AsyncIOScheduler
 from apscheduler.triggers.interval import IntervalTrigger
+import logging
 from utils.logger import get_logger
 from urllib.parse import urljoin
-logger = get_logger("FF14News", channel="ff14news")
+logger = get_logger("FF14News", level=logging.WARNING)
 
 FF14_CHANNELS_FILE = "data/ff14news_channels.json"
 
@@ -79,7 +80,7 @@ class FF14News(commands.Cog):
         self._start_scheduler()
 
     def _start_scheduler(self):
-        self.scheduler.add_job(self._fetch_news_task, IntervalTrigger(hours=1))
+        self.scheduler.add_job(self._fetch_news_task, IntervalTrigger(hours=5))
         self.scheduler.start()
         logger.info("FF14 News scheduler started.")
 

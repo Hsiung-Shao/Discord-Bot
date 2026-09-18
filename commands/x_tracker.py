@@ -5,9 +5,10 @@ import json
 import os
 from twikit import Client
 from config import TWITTER_USERNAME, TWITTER_EMAIL, TWITTER_PASSWORD
+import logging
 from utils.logger import get_logger
 
-logger = get_logger("XTracker", channel="x_tracker")
+logger = get_logger("XTracker", level=logging.WARNING)
 
 
 def _patch_twikit_client_transaction():
@@ -208,7 +209,7 @@ class XTracker(commands.Cog):
     def cog_unload(self):
         self.check_updates_task.cancel()
 
-    @tasks.loop(minutes=60)
+    @tasks.loop(hours=3)
     async def check_updates_task(self):
         await self.check_all_users()
 
