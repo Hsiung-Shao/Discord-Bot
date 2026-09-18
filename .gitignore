@@ -23,3 +23,6 @@ commands/feedback_tracker.py
 commands/_private_ext.txt
 commands/vtuber_sync.py
 core/vtuber_sync.py
+# 本地 .env 備份與工具產物
+.env.bak-*
+.playwright-mcp/
