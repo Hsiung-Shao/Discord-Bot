@@ -44,6 +44,7 @@ initial_extensions = [
     "commands.translator",
     "commands.release_notify",
     "commands.reaction_roles",
+    "commands.ytnotify",
 ]
 
 @bot.event

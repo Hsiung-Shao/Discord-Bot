@@ -81,6 +81,13 @@ RELEASE_CHECK_INTERVAL_MINUTES = int(os.getenv("RELEASE_CHECK_INTERVAL_MINUTES",
 # 表情回應領取身分組 (面板與 emoji→身分組對照由 /rr 指令管理,按 guild 分層存檔)
 REACTION_ROLES_FILE = os.getenv("REACTION_ROLES_FILE", "data/reaction_roles.json")
 
+# YouTube 影片更新通知 (單一頻道,RSS feed 輪詢,無需 API Key)
+YT_CHANNEL_ID = os.getenv("YT_CHANNEL_ID", "")
+YT_NEWS_THREAD_ID = int(os.getenv("YT_NEWS_THREAD_ID", "0"))
+YT_NOTIFY_ROLE_ID = int(os.getenv("YT_NOTIFY_ROLE_ID", "0"))
+YT_DATA_FILE = os.getenv("YT_DATA_FILE", "data/ytnotify.json")
+YT_CHECK_INTERVAL_MINUTES = int(os.getenv("YT_CHECK_INTERVAL_MINUTES", "20"))
+
 # Guild IDs (用於即時同步 slash commands，多個以逗號分隔)
 def _parse_guild_ids(raw: str) -> list[int]:
     result = []
