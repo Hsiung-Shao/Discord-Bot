@@ -43,8 +43,6 @@ BDUST_DATA_FILE = "data/news_data.json"
 BDUST_REMIND_USERS_FILE = "data/bdust_remind_users.json"
 
 
-ANIME_SONG_DATA_FILE = os.getenv("ANIME_SONG_DATA_FILE")
-
 # Backup Directory
 BACKUP_ROOT = os.getenv("BACKUP_ROOT")
 
