@@ -21,6 +21,12 @@ MINECRAFT_STATUS_THREAD_ID = int(os.getenv("MINECRAFT_STATUS_THREAD_ID"))
 SEVENDAY_DIR = os.getenv("SEVENDAY_DIR")
 SEVENDAY_EXE = os.getenv("SEVENDAY_EXE")
 SEVENDAY_KEYWORD = os.getenv("SEVENDAY_KEYWORD")
+# 選填:程序命令列還要含此字串才算伺服器。用客戶端 7DaysToDie.exe 當專用伺服器時,
+# 遊戲客戶端與伺服器同名,靠 "-dedicated" 區分
+SEVENDAY_CMDLINE_KEYWORD = os.getenv("SEVENDAY_CMDLINE_KEYWORD", "")
+# 選填:Windows 排程任務名稱。bot 以服務(session 0)執行時直接 Popen 的視窗不可見,
+# 設定後改用 schtasks /Run 觸發「以使用者互動身分」的任務,伺服器 console 會顯示在桌面
+SEVENDAY_START_TASK = os.getenv("SEVENDAY_START_TASK", "")
 SEVENDAY_TELNET_PORT = int(os.getenv("SEVENDAY_TELNET_PORT"))
 SEVENDAY_TELNET_PASSWORD = os.getenv("SEVENDAY_TELNET_PASSWORD")
 SEVENDAY_STATUS_THREAD_ID = int(os.getenv("SEVENDAY_STATUS_THREAD_ID"))

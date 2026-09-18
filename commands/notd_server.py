@@ -28,7 +28,7 @@ class NotdServerControl(commands.Cog):
         # 啟動權限:授權使用者不限時段;其他人僅限開放時段(邏輯與 Minecraft 共用)
         self.allowed_user_id = NOTD_ALLOWED_USER_ID
         self.start_window = StartWindow(
-            enabled=True,
+            enabled=False,  # 不限時段;要恢復限制改回 True 即可
             from_hour=21,   # 開放啟動時段起點(台北時間,含)
             to_hour=5,      # 開放啟動時段終點(台北時間,不含)
             allowed_user_ids=[NOTD_ALLOWED_USER_ID],

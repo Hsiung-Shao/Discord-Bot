@@ -123,35 +123,35 @@ class ServerControlPanelView(discord.ui.View):
         else:
             await self.send_temporary_message(interaction.channel, "❌ Minecraft 關閉失敗")
 
-    # @discord.ui.button(label="啟動 7 Days", style=discord.ButtonStyle.green, custom_id="start7d")
-    # async def start_7d(self, interaction: discord.Interaction, button: discord.ui.Button):
-    #     await interaction.response.defer()
-    #     ctx = await self.bot.get_context(interaction.message)
-    #     cog = self.bot.get_cog("SevenDayServerControl")
-    #     if cog:
-    #         result = await cog.start_server(ctx)
-    #         if result is True:
-    #             await self.send_temporary_message(interaction.channel, "✅ 7 Days 啟動成功")
-    #             await self.schedule_status_update(interaction)
-    #         elif result is False:
-    #             await self.send_temporary_message(interaction.channel, "⚠️ 7 Days 已在執行中")
-    #         else:
-    #             await self.send_temporary_message(interaction.channel, "❌ 7 Days 啟動失敗")
+    @discord.ui.button(label="啟動 7 Days", style=discord.ButtonStyle.green, custom_id="start7d")
+    async def start_7d(self, interaction: discord.Interaction, button: discord.ui.Button):
+        await interaction.response.defer()
+        ctx = await self.bot.get_context(interaction.message)
+        cog = self.bot.get_cog("SevenDayServerControl")
+        if cog:
+            result = await cog.start_server(ctx)
+            if result is True:
+                await self.send_temporary_message(interaction.channel, "✅ 7 Days 啟動成功")
+                await self.schedule_status_update(interaction)
+            elif result is False:
+                await self.send_temporary_message(interaction.channel, "⚠️ 7 Days 已在執行中")
+            else:
+                await self.send_temporary_message(interaction.channel, "❌ 7 Days 啟動失敗")
 
-    # @discord.ui.button(label="關閉 7 Days", style=discord.ButtonStyle.red, custom_id="stop7d")
-    # async def stop_7d(self, interaction: discord.Interaction, button: discord.ui.Button):
-    #     await interaction.response.defer()
-    #     ctx = await self.bot.get_context(interaction.message)
-    #     cog = self.bot.get_cog("SevenDayServerControl")
-    #     if cog:
-    #         result = await cog.stop_server(ctx)
-    #         if result is True:
-    #             await self.send_temporary_message(interaction.channel, "🛑 7 Days 關閉成功")
-    #             await self.schedule_status_update(interaction)
-    #         elif result is False:
-    #             await self.send_temporary_message(interaction.channel, "⚠️ 7 Days 尚未啟動")
-    #         else:
-    #             await self.send_temporary_message(interaction.channel, "❌ 7 Days 關閉失敗")
+    @discord.ui.button(label="關閉 7 Days", style=discord.ButtonStyle.red, custom_id="stop7d")
+    async def stop_7d(self, interaction: discord.Interaction, button: discord.ui.Button):
+        await interaction.response.defer()
+        ctx = await self.bot.get_context(interaction.message)
+        cog = self.bot.get_cog("SevenDayServerControl")
+        if cog:
+            result = await cog.stop_server(ctx)
+            if result is True:
+                await self.send_temporary_message(interaction.channel, "🛑 7 Days 關閉成功")
+                await self.schedule_status_update(interaction)
+            elif result is False:
+                await self.send_temporary_message(interaction.channel, "⚠️ 7 Days 尚未啟動")
+            else:
+                await self.send_temporary_message(interaction.channel, "❌ 7 Days 關閉失敗")
 
     # @discord.ui.button(label="啟動 Night of the Dead", style=discord.ButtonStyle.green, custom_id="startnotd")
     # async def start_notd(self, interaction: discord.Interaction, button: discord.ui.Button):
@@ -282,14 +282,18 @@ async def _add_sevendays_fields(embed: discord.Embed, bot) -> None:
         last_backup = getattr(seven_cog, "last_backup", None)
 
         running = False
-        processes = await safe_process_iter()
-        for proc in processes:
-            try:
-                if proc.info['name'] and "7DaysToDieServer" in proc.info['name']:
-                    running = True
-                    break
-            except (psutil.NoSuchProcess, psutil.AccessDenied):
-                continue
+        if seven_cog is not None:
+            # 交給 cog 判斷(含 SEVENDAY_CMDLINE_KEYWORD),別在這裡硬編碼程序名稱
+            running = await asyncio.to_thread(seven_cog.is_process_running)
+        else:
+            processes = await safe_process_iter()
+            for proc in processes:
+                try:
+                    if proc.info['name'] and "7DaysToDie" in proc.info['name']:
+                        running = True
+                        break
+                except (psutil.NoSuchProcess, psutil.AccessDenied):
+                    continue
 
         if running:
             info = "狀態：🟢 在線中"

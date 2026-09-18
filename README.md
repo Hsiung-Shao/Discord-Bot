@@ -134,7 +134,9 @@ MINECRAFT_STATUS_THREAD_ID=狀態監控頻道ID
 
 # 7 Days to Die Server
 SEVENDAY_DIR=伺服器路徑
-SEVENDAY_EXE=啟動執行檔名稱.exe
+SEVENDAY_EXE=啟動執行檔名稱.exe 或 startdedicated.bat
+SEVENDAY_KEYWORD=程序偵測關鍵字(專用伺服器 7DaysToDieServer.exe;用客戶端 exe 當伺服器時填 7DaysToDie.exe)
+SEVENDAY_CMDLINE_KEYWORD=選填,命令列還須含此字串才算伺服器(客戶端 exe 當伺服器時填 -dedicated,以免把遊戲客戶端當成伺服器)
 SEVENDAY_TELNET_PORT=8081
 SEVENDAY_TELNET_PASSWORD=Telnet密碼
 SEVENDAY_STATUS_THREAD_ID=狀態監控頻道ID
