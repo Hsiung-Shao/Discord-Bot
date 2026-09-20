@@ -2,7 +2,6 @@ import asyncio
 import json
 import os
 import xml.etree.ElementTree as ET
-from datetime import datetime
 from typing import Optional, Union
 
 import aiohttp
@@ -27,9 +26,7 @@ FEED_URL = f"https://www.youtube.com/feeds/videos.xml?channel_id={YT_CHANNEL_ID}
 ATOM_NS = {
     "a": "http://www.w3.org/2005/Atom",
     "yt": "http://www.youtube.com/xml/schemas/2015",
-    "media": "http://search.yahoo.com/mrss/",
 }
-BODY_LIMIT = 3900
 MAX_PUSH_PER_RUN = 5
 MAX_KEPT_IDS = 100  # RSS 只回最新約 15 筆，留夠餘裕防止設定改動時誤判
 
@@ -90,28 +87,12 @@ class YTNotify(commands.Cog):
             if "/shorts/" in url:
                 continue  # 只通知一般影片；Shorts 的 alternate link 是 /shorts/<id> 而非 /watch?v=
             published = entry.findtext("a:published", default="", namespaces=ATOM_NS)
-            media_group = entry.find("media:group", ATOM_NS)
-            thumb = (
-                media_group.find("media:thumbnail", ATOM_NS)
-                if media_group is not None
-                else None
-            )
-            thumb_url = thumb.get("url") if thumb is not None else None
-            desc = (
-                media_group.findtext("media:description", default="", namespaces=ATOM_NS)
-                if media_group is not None
-                else ""
-            )
-            author = entry.findtext("a:author/a:name", default="", namespaces=ATOM_NS)
             items.append(
                 {
                     "video_id": video_id,
                     "title": title,
                     "url": url,
                     "published": published,
-                    "thumbnail": thumb_url,
-                    "description": desc,
-                    "author": author,
                 }
             )
         items.sort(key=lambda it: it["published"])  # 不信任 feed 原始順序，同 wuwanews 慣例
@@ -172,33 +153,19 @@ class YTNotify(commands.Cog):
         except Exception as e:
             logger.error(f"排程檢查發生未預期錯誤：{e}")
 
-    # ── Embed / 推播 ──
-    def _truncate_desc(self, text: str, url: str, limit: int = BODY_LIMIT) -> str:
-        text = (text or "").strip()
-        if len(text) <= limit:
-            return text
-        cut = text[:limit]
-        split_at = cut.rfind("\n")
-        if split_at > limit * 0.6:
-            cut = cut[:split_at]
-        return f"{cut}\n\n[查看完整內容]({url})"
+    # ── 推播 ──
+    def _build_content(self, item: dict) -> str:
+        """只送標題與網址，讓 Discord 自己展開 YouTube 預覽(含播放器)。
 
-    def _build_embed(self, item: dict) -> discord.Embed:
-        embed = discord.Embed(
-            title=item["title"][:256],
-            url=item["url"],
-            description=self._truncate_desc(item["description"], item["url"]),
-            color=0xFF0000,  # YouTube 紅
-        )
-        if item["thumbnail"]:
-            embed.set_image(url=item["thumbnail"])
-        if item["published"]:
-            try:
-                embed.timestamp = datetime.fromisoformat(item["published"].replace("Z", "+00:00"))
-            except ValueError:
-                pass
-        embed.set_footer(text=item["author"] or "YouTube")
-        return embed
+        不用自訂 embed：送了 embed 之後 Discord 就不再自動展開連結，
+        預覽會退化成靜態圖、且影片說明動輒上千字塞進去會洗版。
+        """
+        lines = []
+        if YT_NOTIFY_ROLE_ID:
+            lines.append(f"<@&{YT_NOTIFY_ROLE_ID}>")
+        lines.append(f"**{item['title']}**")
+        lines.append(item["url"])
+        return "\n".join(lines)
 
     async def _push_video(self, item: dict) -> bool:
         try:
@@ -206,10 +173,10 @@ class YTNotify(commands.Cog):
         except (discord.NotFound, discord.Forbidden) as e:
             logger.error(f"無法取得推播頻道 {YT_NEWS_THREAD_ID}：{e}")
             return False
-        embed = self._build_embed(item)
-        content = f"<@&{YT_NOTIFY_ROLE_ID}>" if YT_NOTIFY_ROLE_ID else None
         try:
-            await channel.send(content=content, embed=embed, allowed_mentions=ALLOWED_MENTIONS)
+            await channel.send(
+                content=self._build_content(item), allowed_mentions=ALLOWED_MENTIONS
+            )
             logger.info(f"已推送新影片：{item['title']} ({item['video_id']})")
             return True
         except discord.Forbidden:
